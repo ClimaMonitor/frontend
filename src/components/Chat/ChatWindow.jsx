@@ -1,0 +1,110 @@
+import { useEffect, useRef } from 'react'
+import { useChat } from '../../hooks/useChat.js'
+import { MessageBubble } from './MessageBubble.jsx'
+import { ChatInput } from './ChatInput.jsx'
+import styles from './ChatWindow.module.css'
+
+export function ChatWindow() {
+  const { messages, isLoading, error, sendMessage, clearError, hasMessages } = useChat()
+  const messagesEndRef = useRef(null)
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isLoading])
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.messageArea}>
+        {!hasMessages && !isLoading && (
+          <EmptyState />
+        )}
+
+        {messages.map((message) => (
+          <MessageBubble key={message.id} message={message} />
+        ))}
+
+        {isLoading && <LoadingIndicator />}
+
+        {error && (
+          <ErrorMessage message={error} onDismiss={clearError} />
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      <ChatInput onSend={sendMessage} disabled={isLoading} />
+    </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className={styles.emptyState}>
+      <div className={styles.emptyIcon}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      </div>
+      <h2 className={styles.emptyTitle}>Ask a question!</h2>
+      <p className={styles.emptyText}>
+        I can help you learn about climate science. Try asking about global warming,
+        the carbon cycle, or how scientists measure temperature changes.
+      </p>
+      <div className={styles.suggestions}>
+        <SuggestionChip text="What causes global warming?" />
+        <SuggestionChip text="How do scientists measure temperature?" />
+        <SuggestionChip text="What is the carbon cycle?" />
+      </div>
+    </div>
+  )
+}
+
+function SuggestionChip({ text }) {
+  const { sendMessage } = useChat()
+
+  return (
+    <button
+      className={styles.suggestionChip}
+      onClick={() => sendMessage(text)}
+    >
+      {text}
+    </button>
+  )
+}
+
+function LoadingIndicator() {
+  return (
+    <div className={styles.loading}>
+      <div className={styles.loadingDots}>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <span className={styles.loadingText}>Thinking...</span>
+    </div>
+  )
+}
+
+function ErrorMessage({ message, onDismiss }) {
+  return (
+    <div className={styles.error}>
+      <div className={styles.errorContent}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span>{message}</span>
+      </div>
+      <button className={styles.errorDismiss} onClick={onDismiss}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+export default ChatWindow
