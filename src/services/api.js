@@ -1,11 +1,8 @@
 import axios from 'axios'
 
-// Azure API endpoint
-const AZURE_API_BASE = 'https://climamonitor-api.azurewebsites.net/api/v1'
-
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: AZURE_API_BASE,
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -51,9 +48,9 @@ api.interceptors.response.use(
   }
 )
 
-// Mock user/classroom IDs for development
-const MOCK_USER_ID = 'student_mock'
-const MOCK_CLASSROOM_ID = 'class_mock'
+// User/classroom IDs (from environment)
+const USER_ID = import.meta.env.VITE_USER_ID || 'student_mock'
+const CLASSROOM_ID = import.meta.env.VITE_CLASSROOM_ID || 'class_mock'
 
 /**
  * Send a chat message and get an AI response
@@ -64,8 +61,8 @@ const MOCK_CLASSROOM_ID = 'class_mock'
 export async function sendMessage(message, conversationId = null) {
   const payload = {
     message,
-    user_id: MOCK_USER_ID,
-    classroom_id: MOCK_CLASSROOM_ID,
+    user_id: USER_ID,
+    classroom_id: CLASSROOM_ID,
   }
 
   if (conversationId) {
@@ -84,7 +81,7 @@ export async function sendMessage(message, conversationId = null) {
 export async function getConversations(params = {}) {
   const response = await api.get('/conversations', {
     params: {
-      classroom_id: MOCK_CLASSROOM_ID,
+      classroom_id: CLASSROOM_ID,
       ...params,
     },
   })
