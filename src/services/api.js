@@ -1,8 +1,11 @@
 import axios from 'axios'
 
+// Azure API endpoint
+const AZURE_API_BASE = 'https://climamonitor-api.azurewebsites.net/api/v1'
+
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: AZURE_API_BASE,
   headers: {
     'Content-Type': 'application/json',
   },
