@@ -44,6 +44,11 @@
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+
+  /* Sidebar */
+  --sidebar-width: 400px;
+  --sidebar-width-min: 280px;
+  --sidebar-width-max: 50vw;
 }
 
 /* Global resets */

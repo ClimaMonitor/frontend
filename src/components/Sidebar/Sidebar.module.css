@@ -1,0 +1,104 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+  z-index: 90;
+}
+
+.overlayVisible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width-min);
+  max-width: var(--sidebar-width-max);
+  background-color: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  transform: translateX(-100%);
+  transition: transform var(--transition-normal);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+}
+
+.sidebarOpen {
+  transform: translateX(0);
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.sidebarTitle {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
+}
+
+.closeButton:hover {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.resizeHandle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  cursor: ew-resize;
+  background: transparent;
+  transition: background-color var(--transition-fast);
+}
+
+.resizeHandle:hover,
+.resizeHandle.resizing {
+  background-color: var(--color-primary);
+}
+
+/* Desktop: hide overlay, show resize handle */
+@media (min-width: 769px) {
+  .overlay {
+    display: none;
+  }
+}
+
+/* Mobile: full width sidebar, hide resize handle */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .resizeHandle {
+    display: none;
+  }
+}
