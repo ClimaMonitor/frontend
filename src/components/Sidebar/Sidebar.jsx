@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useSidebar } from '../../hooks/useSidebar.js'
 import { RoleSwitcher } from './RoleSwitcher.jsx'
-import { PermissionDemo } from './PermissionDemo.jsx'
+import { RoleDemoUI } from './RoleDemoUI.jsx'
 import styles from './Sidebar.module.css'
 
 function CloseIcon() {
@@ -98,7 +98,7 @@ export function Sidebar() {
         </div>
 
         <RoleSwitcher />
-        <PermissionDemo />
+        <RoleDemoUI />
 
         {/* Resize handle */}
         <div

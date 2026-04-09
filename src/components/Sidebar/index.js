@@ -1,3 +1,3 @@
 export { Sidebar } from './Sidebar.jsx'
 export { RoleSwitcher } from './RoleSwitcher.jsx'
-export { PermissionDemo } from './PermissionDemo.jsx'
+export { RoleDemoUI } from './RoleDemoUI.jsx'

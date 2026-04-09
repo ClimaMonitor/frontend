@@ -1,0 +1,292 @@
+.container {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Section cards */
+.section {
+  background-color: var(--color-bg);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  margin: 0;
+}
+
+.sectionHeader svg {
+  flex-shrink: 0;
+}
+
+.sectionContent {
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Mock input */
+.mockInput {
+  width: 100%;
+  padding: var(--space-sm);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.mockInput:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Mock messages */
+.mockMessages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.mockMessageUser {
+  align-self: flex-end;
+  background-color: var(--color-primary);
+  color: white;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  max-width: 80%;
+}
+
+.mockMessageAssistant {
+  align-self: flex-start;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  max-width: 80%;
+  color: var(--color-text-muted);
+}
+
+/* Mock select */
+.mockSelect {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: not-allowed;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-sm) center;
+  padding-right: var(--space-xl);
+}
+
+.mockSelect:disabled {
+  opacity: 0.7;
+}
+
+/* Mock list */
+.mockList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+
+.mockListItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.mockListTitle {
+  color: var(--color-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mockListMeta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+  margin-left: var(--space-sm);
+}
+
+.mockListCompact {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.mockListCompact li {
+  padding: 2px 0;
+}
+
+/* Stat cards */
+.statCards {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.statCard {
+  flex: 1;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  text-align: center;
+  border: 1px solid var(--color-border);
+}
+
+.statNumber {
+  display: block;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.statLabel {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Top topics */
+.topTopics {
+  font-size: var(--font-size-sm);
+}
+
+.topTopicsLabel {
+  font-weight: 500;
+  color: var(--color-text);
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+/* Checkbox */
+.mockCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.mockCheckboxLabel input {
+  cursor: not-allowed;
+}
+
+/* Badges */
+.codeBadge {
+  font-family: monospace;
+  font-size: var(--font-size-sm);
+  background-color: var(--color-secondary);
+  color: white;
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+}
+
+.revokedBadge {
+  font-size: var(--font-size-sm);
+  background-color: var(--color-error-bg);
+  color: var(--color-error);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+}
+
+.statusBadge {
+  font-size: var(--font-size-sm);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+}
+
+.statusBadge.indexed {
+  background-color: rgba(45, 125, 111, 0.15);
+  color: var(--color-primary);
+}
+
+.statusBadge.processing {
+  background-color: rgba(232, 184, 74, 0.2);
+  color: #b8860b;
+}
+
+/* Buttons */
+.buttonGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.mockButton {
+  width: 100%;
+  padding: var(--space-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: white;
+  background-color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: not-allowed;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.mockButtonSmall {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  background-color: transparent;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  cursor: not-allowed;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+/* Info note */
+.infoNote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--color-border);
+  margin: 0;
+}
+
+.infoNote svg {
+  flex-shrink: 0;
+  color: var(--color-secondary);
+}
