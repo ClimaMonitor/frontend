@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useChat } from '../../hooks/useChat.js'
+import { useAuth } from '../../hooks/useAuth.js'
 import { MessageBubble } from './MessageBubble.jsx'
 import { ChatInput } from './ChatInput.jsx'
 import styles from './ChatWindow.module.css'
 
-export function ChatWindow() {
+export function ChatWindow({ isAnonymousMode = false }) {
   const { messages, isLoading, error, sendMessage, clearError, hasMessages } = useChat()
+  const { isAuthenticated, primaryRole } = useAuth()
   const messagesEndRef = useRef(null)
 
   // Auto-scroll to bottom when new messages arrive
@@ -17,7 +19,7 @@ export function ChatWindow() {
     <div className={styles.container}>
       <div className={styles.messageArea}>
         {!hasMessages && !isLoading && (
-          <EmptyState />
+          <EmptyState isAnonymousMode={isAnonymousMode} isAuthenticated={isAuthenticated} primaryRole={primaryRole} />
         )}
 
         {messages.map((message) => (
@@ -38,7 +40,7 @@ export function ChatWindow() {
   )
 }
 
-function EmptyState() {
+function EmptyState({ isAnonymousMode, isAuthenticated, primaryRole }) {
   return (
     <div className={styles.emptyState}>
       <div className={styles.emptyIcon}>
@@ -48,8 +50,11 @@ function EmptyState() {
       </div>
       <h2 className={styles.emptyTitle}>Ask a question!</h2>
       <p className={styles.emptyText}>
-        I can help you learn about climate science. Try asking about global warming,
-        the carbon cycle, or how scientists measure temperature changes.
+        {isAuthenticated
+          ? `Signed in as ${primaryRole || 'a user'}. Ask about climate science and the rest of the interface will reflect your role.`
+          : isAnonymousMode
+            ? 'Anonymous dev mode is enabled. Authentication is bypassed locally, but role-based UI is hidden until you sign in.'
+            : 'I can help you learn about climate science. Try asking about global warming, the carbon cycle, or how scientists measure temperature changes.'}
       </p>
       <div className={styles.suggestions}>
         <SuggestionChip text="What causes global warming?" />

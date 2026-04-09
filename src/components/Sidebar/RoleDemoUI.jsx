@@ -1,11 +1,29 @@
-import { useSidebar } from '../../hooks/useSidebar.js'
+import { useAuth } from '../../hooks/useAuth.js'
 import { ROLES } from '../../data/rolePermissions.js'
 import styles from './RoleDemoUI.module.css'
 
 export function RoleDemoUI() {
-  const { currentRole } = useSidebar()
+  const { primaryRole: currentRole } = useAuth()
   const isTeacher = currentRole === ROLES.TEACHER || currentRole === ROLES.ADMIN
   const isAdmin = currentRole === ROLES.ADMIN
+
+  if (!currentRole) {
+    return (
+      <div className={styles.container}>
+        <section className={styles.section}>
+          <h3 className={styles.sectionHeader}>
+            <InfoIcon />
+            Role-based access
+          </h3>
+          <div className={styles.sectionContent}>
+            <p className={styles.infoNote}>
+              Sign in with a seeded account to see the student, teacher, or admin interface. Anonymous dev mode keeps the chat accessible but hides role-scoped panels.
+            </p>
+          </div>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.container}>
@@ -36,6 +54,11 @@ function ConversationHistory({ role }) {
         Conversations
       </h3>
       <div className={styles.sectionContent}>
+        {!isTeacher && (
+          <p className={styles.infoNote}>
+            Students can review only their own conversation history.
+          </p>
+        )}
         {isAdmin && (
           <select className={styles.mockSelect} disabled>
             <option>All Classrooms</option>

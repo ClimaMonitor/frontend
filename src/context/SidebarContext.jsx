@@ -1,5 +1,4 @@
 import { createContext, useContext, useReducer, useCallback } from 'react'
-import { ROLES } from '../data/rolePermissions.js'
 
 // Action types
 const ACTIONS = {
@@ -7,14 +6,12 @@ const ACTIONS = {
   OPEN_SIDEBAR: 'OPEN_SIDEBAR',
   CLOSE_SIDEBAR: 'CLOSE_SIDEBAR',
   SET_WIDTH: 'SET_WIDTH',
-  SET_ROLE: 'SET_ROLE',
 }
 
 // Initial state
 const initialState = {
   isOpen: false,
   width: 400,
-  currentRole: ROLES.STUDENT,
 }
 
 // Reducer
@@ -42,12 +39,6 @@ function sidebarReducer(state, action) {
       return {
         ...state,
         width: action.payload,
-      }
-
-    case ACTIONS.SET_ROLE:
-      return {
-        ...state,
-        currentRole: action.payload,
       }
 
     default:
@@ -82,19 +73,13 @@ export function SidebarProvider({ children }) {
     dispatch({ type: ACTIONS.SET_WIDTH, payload: clampedWidth })
   }, [])
 
-  const setRole = useCallback((role) => {
-    dispatch({ type: ACTIONS.SET_ROLE, payload: role })
-  }, [])
-
   const value = {
     isOpen: state.isOpen,
     width: state.width,
-    currentRole: state.currentRole,
     toggle,
     open,
     close,
     setWidth,
-    setRole,
   }
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>

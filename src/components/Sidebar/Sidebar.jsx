@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useSidebar } from '../../hooks/useSidebar.js'
-import { RoleSwitcher } from './RoleSwitcher.jsx'
 import { RoleDemoUI } from './RoleDemoUI.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
 import styles from './Sidebar.module.css'
 
 function CloseIcon() {
@@ -22,8 +22,9 @@ function CloseIcon() {
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ isAnonymousMode = false }) {
   const { isOpen, width, close, setWidth } = useSidebar()
+  const { displayName, email, logout, primaryRole } = useAuth()
   const sidebarRef = useRef(null)
   const [isResizing, setIsResizing] = useState(false)
 
@@ -87,7 +88,14 @@ export function Sidebar() {
         aria-hidden={!isOpen}
       >
         <div className={styles.sidebarHeader}>
-          <span className={styles.sidebarTitle}>Role Demo</span>
+          <div>
+            <span className={styles.sidebarTitle}>{isAnonymousMode ? 'Local dev mode' : 'Signed in'}</span>
+            <p className={styles.sidebarMeta}>
+              {isAnonymousMode
+                ? 'Authentication is bypassed for local testing.'
+                : `${displayName}${email ? ` · ${email}` : ''}${primaryRole ? ` · ${primaryRole}` : ''}`}
+            </p>
+          </div>
           <button
             className={styles.closeButton}
             onClick={close}
@@ -97,7 +105,11 @@ export function Sidebar() {
           </button>
         </div>
 
-        <RoleSwitcher />
+        {!isAnonymousMode && (
+          <button type="button" className={styles.signOutButton} onClick={logout}>
+            Sign out
+          </button>
+        )}
         <RoleDemoUI />
 
         {/* Resize handle */}

@@ -1,0 +1,104 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-xl);
+  background:
+    radial-gradient(circle at top left, rgba(107, 170, 173, 0.2), transparent 34%),
+    linear-gradient(135deg, #eef5f3 0%, #f8fbfa 48%, #edf6f1 100%);
+}
+
+.card {
+  width: min(100%, 460px);
+  padding: var(--space-xl);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(36, 95, 85, 0.12);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(36, 95, 85, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  object-fit: cover;
+}
+
+.eyebrow {
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary-dark);
+}
+
+.title {
+  font-size: 2rem;
+  line-height: 1.1;
+  color: #163c35;
+}
+
+.copy {
+  margin-bottom: var(--space-lg);
+  color: var(--color-text-muted);
+}
+
+.notice,
+.error {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.notice {
+  background: #eef4ff;
+  color: #24406f;
+}
+
+.error {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.primaryButton,
+.secondaryButton {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: var(--font-size-base);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: #fff;
+  box-shadow: 0 14px 24px rgba(45, 125, 111, 0.24);
+}
+
+.primaryButton:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.secondaryButton {
+  margin-top: var(--space-sm);
+  background: transparent;
+  color: var(--color-primary-dark);
+  border-color: rgba(36, 95, 85, 0.18);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}

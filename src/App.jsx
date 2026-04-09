@@ -1,26 +1,76 @@
+import { useEffect, useState } from 'react'
 import { ChatProvider } from './context/ChatContext.jsx'
 import { SidebarProvider } from './context/SidebarContext.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
 import { ChatWindow } from './components/Chat/ChatWindow.jsx'
 import { Sidebar } from './components/Sidebar/index.js'
+import { LoginPage } from './components/Auth/index.js'
 import { useChat } from './hooks/useChat.js'
 import { useSidebar } from './hooks/useSidebar.js'
+import { useAuth } from './hooks/useAuth.js'
+import { setAccessTokenProvider } from './services/api.js'
 import styles from './App.module.css'
+import { MsalProvider } from '@azure/msal-react'
+import { msalInstance } from './auth/msalInstance.js'
 
 function App() {
+  return (
+    <MsalProvider instance={msalInstance}>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </MsalProvider>
+  )
+}
+
+function AppShell() {
+  const { canContinueWithoutAuth, getAccessToken, isAuthenticated, isLoading } = useAuth()
+  const [isAnonymousMode, setIsAnonymousMode] = useState(false)
+
+  useEffect(() => {
+    setAccessTokenProvider(async () => {
+      if (!isAuthenticated) {
+        return null
+      }
+
+      return getAccessToken()
+    })
+
+    return () => setAccessTokenProvider(null)
+  }, [getAccessToken, isAuthenticated])
+
+  useEffect(() => {
+    if (isAuthenticated && isAnonymousMode) {
+      setIsAnonymousMode(false)
+    }
+  }, [isAnonymousMode, isAuthenticated])
+
+  if (isLoading) {
+    return <div className={styles.loadingScreen}>Loading authentication...</div>
+  }
+
+  if (!isAuthenticated && !isAnonymousMode) {
+    return (
+      <LoginPage
+        onContinueWithoutAuth={canContinueWithoutAuth ? () => setIsAnonymousMode(true) : undefined}
+      />
+    )
+  }
+
   return (
     <SidebarProvider>
       <ChatProvider>
         <div className={styles.app}>
-          <Header />
-          <Sidebar />
-          <MainContent />
+          <Header isAnonymousMode={isAnonymousMode} />
+          <Sidebar isAnonymousMode={isAnonymousMode} />
+          <MainContent isAnonymousMode={isAnonymousMode} />
         </div>
       </ChatProvider>
     </SidebarProvider>
   )
 }
 
-function MainContent() {
+function MainContent({ isAnonymousMode }) {
   const { isOpen, width } = useSidebar()
 
   return (
@@ -28,14 +78,15 @@ function MainContent() {
       className={`${styles.main} ${isOpen ? styles.mainSidebarOpen : ''}`}
       style={isOpen ? { marginLeft: `${width}px` } : undefined}
     >
-      <ChatWindow />
+      <ChatWindow isAnonymousMode={isAnonymousMode} />
     </main>
   )
 }
 
-function Header() {
+function Header({ isAnonymousMode }) {
   const { clearConversation, hasMessages } = useChat()
   const { toggle, isOpen } = useSidebar()
+  const { isAuthenticated, primaryRole } = useAuth()
 
   return (
     <header className={styles.header}>
@@ -56,6 +107,14 @@ function Header() {
           />
           <span className={styles.logoText}>ClimaMonitor</span>
         </div>
+      </div>
+
+      <div className={styles.headerCenter}>
+        {isAuthenticated ? (
+          <span className={styles.roleBadge}>{primaryRole || 'signed-in user'}</span>
+        ) : isAnonymousMode ? (
+          <span className={styles.anonymousBadge}>anonymous dev mode</span>
+        ) : null}
       </div>
 
       {hasMessages && (

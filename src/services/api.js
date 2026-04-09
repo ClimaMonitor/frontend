@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { authMode } from '../auth/msalConfig.js'
 
 // Create axios instance with default config
 const api = axios.create({
@@ -9,20 +10,30 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout for AI responses
 })
 
-// Request interceptor for adding auth headers (when auth is implemented)
-api.interceptors.request.use(
-  (config) => {
-    // TODO: Add X-API-Key header when auth is implemented
-    // const apiKey = getApiKey()
-    // if (apiKey) {
-    //   config.headers['X-API-Key'] = apiKey
-    // }
+let accessTokenProvider = null
+
+export function setAccessTokenProvider(provider) {
+  accessTokenProvider = provider
+}
+
+api.interceptors.request.use(async (config) => {
+  if (!accessTokenProvider) {
     return config
-  },
-  (error) => {
-    return Promise.reject(error)
   }
-)
+
+  try {
+    const token = await accessTokenProvider()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+  } catch (error) {
+    if (authMode !== 'optional') {
+      return Promise.reject(error)
+    }
+  }
+
+  return config
+})
 
 // Response interceptor for consistent error handling
 api.interceptors.response.use(

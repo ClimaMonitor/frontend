@@ -50,6 +50,28 @@
   color: var(--color-primary);
 }
 
+.sidebarMeta {
+  margin-top: 2px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.signOutButton {
+  margin: var(--space-md);
+  margin-bottom: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition: all var(--transition-fast);
+}
+
+.signOutButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 .closeButton {
   display: flex;
   align-items: center;
@@ -100,5 +122,10 @@
 
   .resizeHandle {
     display: none;
+  }
+
+  .signOutButton {
+    margin: var(--space-sm);
+    margin-bottom: 0;
   }
 }
