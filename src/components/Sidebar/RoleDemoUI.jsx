@@ -9,7 +9,6 @@ export function RoleDemoUI() {
 
   return (
     <div className={styles.container}>
-      <ChatPreview />
       <ConversationHistory role={currentRole} />
       {isTeacher && <DashboardPanel isAdmin={isAdmin} />}
       {isTeacher && <StudentManagement />}
@@ -17,33 +16,6 @@ export function RoleDemoUI() {
       {isAdmin && <ClassroomManagement />}
       {isAdmin && <UserManagement />}
     </div>
-  )
-}
-
-function ChatPreview() {
-  return (
-    <section className={styles.section}>
-      <h3 className={styles.sectionHeader}>
-        <ChatIcon />
-        Chat
-      </h3>
-      <div className={styles.sectionContent}>
-        <input
-          type="text"
-          className={styles.mockInput}
-          placeholder="Ask about climate science..."
-          disabled
-        />
-        <div className={styles.mockMessages}>
-          <div className={styles.mockMessageUser}>
-            What causes rain?
-          </div>
-          <div className={styles.mockMessageAssistant}>
-            Rain forms when water vapor in clouds condenses into droplets...
-          </div>
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -281,14 +253,6 @@ function UserManagement() {
 }
 
 // Icons
-function ChatIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  )
-}
-
 function HistoryIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
