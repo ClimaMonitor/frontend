@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode azure",
+    "dev:azure": "vite --mode azure",
+    "dev:localapi": "vite --mode localapi",
     "build": "vite build",
     "preview": "vite preview"
   },
