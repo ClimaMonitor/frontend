@@ -23,13 +23,29 @@ function normalizeRole(role) {
   return null
 }
 
-function getRoleClaims(account) {
+function parseJwtClaims(token) {
+  if (!token) {
+    return {}
+  }
+
+  try {
+    const [, payload] = token.split('.')
+    return JSON.parse(window.atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return {}
+  }
+}
+
+function getRoleClaims(account, tokenClaims) {
   const idTokenClaims = account?.idTokenClaims || {}
-  const candidates = Array.isArray(idTokenClaims.roles)
+  const tokenRoles = Array.isArray(tokenClaims.roles) ? tokenClaims.roles : []
+  const idTokenRoles = Array.isArray(idTokenClaims.roles)
     ? idTokenClaims.roles
     : Array.isArray(idTokenClaims.extension_Roles)
       ? idTokenClaims.extension_Roles
       : []
+
+  const candidates = tokenRoles.length ? tokenRoles : idTokenRoles
 
   return candidates.map(normalizeRole).filter(Boolean)
 }
@@ -43,10 +59,11 @@ export function AuthProvider({ children }) {
   const { instance, accounts, inProgress } = useMsal()
   const isAuthenticated = useIsAuthenticated()
   const [accessToken, setAccessToken] = useState(null)
+  const [accessTokenClaims, setAccessTokenClaims] = useState({})
   const [tokenError, setTokenError] = useState(null)
 
   const account = accounts[0] || null
-  const roles = useMemo(() => getRoleClaims(account), [account])
+  const roles = useMemo(() => getRoleClaims(account, accessTokenClaims), [account, accessTokenClaims])
   const primaryRole = roles[0] || null
   const canContinueWithoutAuth = authMode === 'optional'
 
@@ -63,10 +80,12 @@ export function AuthProvider({ children }) {
         account,
       })
       setAccessToken(response.accessToken)
+      setAccessTokenClaims(parseJwtClaims(response.accessToken))
       setTokenError(null)
       return response.accessToken
     } catch (error) {
       setAccessToken(null)
+      setAccessTokenClaims({})
       setTokenError('Unable to acquire an API token for this session.')
       throw error
     }
@@ -75,6 +94,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!isAuthenticated || !account || !isAuthConfigured) {
       setAccessToken(null)
+      setAccessTokenClaims({})
       return
     }
 
