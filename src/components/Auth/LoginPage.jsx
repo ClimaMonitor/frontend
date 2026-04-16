@@ -5,6 +5,7 @@ export function LoginPage({ onContinueWithoutAuth }) {
   const {
     canContinueWithoutAuth,
     isAuthConfigured,
+    isLocalApiTarget,
     isLoading,
     login,
     tokenError,
@@ -37,6 +38,12 @@ export function LoginPage({ onContinueWithoutAuth }) {
 
         {tokenError && <div className={styles.error}>{tokenError}</div>}
 
+        {!isLocalApiTarget && (
+          <div className={styles.notice}>
+            This dev session is pointed at the deployed Azure API. Anonymous dev mode is only available when the frontend is running against the local API.
+          </div>
+        )}
+
         <button
           type="button"
           className={styles.primaryButton}
@@ -55,6 +62,12 @@ export function LoginPage({ onContinueWithoutAuth }) {
           >
             Continue in local dev mode
           </button>
+        )}
+
+        {!canContinueWithoutAuth && isLocalApiTarget && (
+          <p className={styles.helperText}>
+            Anonymous dev mode is currently unavailable because auth is not in optional mode.
+          </p>
         )}
       </section>
     </main>

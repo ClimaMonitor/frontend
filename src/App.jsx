@@ -12,6 +12,7 @@ import { setAccessTokenProvider } from './services/api.js'
 import styles from './App.module.css'
 import { MsalProvider } from '@azure/msal-react'
 import { msalInstance } from './auth/msalInstance.js'
+import { isLocalApiTarget } from './auth/msalConfig.js'
 
 function App() {
   return (
@@ -113,7 +114,9 @@ function Header({ isAnonymousMode }) {
         {isAuthenticated ? (
           <span className={styles.roleBadge}>{primaryRole || 'signed-in user'}</span>
         ) : isAnonymousMode ? (
-          <span className={styles.anonymousBadge}>anonymous dev mode</span>
+          <span className={styles.anonymousBadge}>
+            {isLocalApiTarget ? 'anonymous local dev mode' : 'anonymous mode unavailable on azure api'}
+          </span>
         ) : null}
       </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useChat } from '../../hooks/useChat.js'
 import { useAuth } from '../../hooks/useAuth.js'
+import { isLocalApiTarget } from '../../auth/msalConfig.js'
 import { MessageBubble } from './MessageBubble.jsx'
 import { ChatInput } from './ChatInput.jsx'
 import styles from './ChatWindow.module.css'
@@ -53,7 +54,9 @@ function EmptyState({ isAnonymousMode, isAuthenticated, primaryRole }) {
         {isAuthenticated
           ? `Signed in as ${primaryRole || 'a user'}. Ask about climate science and the rest of the interface will reflect your role.`
           : isAnonymousMode
-            ? 'Anonymous dev mode is enabled. Authentication is bypassed locally, but role-based UI is hidden until you sign in.'
+            ? isLocalApiTarget
+              ? 'Anonymous dev mode is enabled against the local API. Authentication is bypassed locally, but role-based UI is hidden until you sign in.'
+              : 'Anonymous mode cannot chat against the deployed Azure API because authentication is required there. Switch to local API mode to test anonymous chat.'
             : 'I can help you learn about climate science. Try asking about global warming, the carbon cycle, or how scientists measure temperature changes.'}
       </p>
       <div className={styles.suggestions}>

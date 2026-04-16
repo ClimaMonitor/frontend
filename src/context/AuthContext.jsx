@@ -8,7 +8,13 @@ import {
 } from 'react'
 import { useIsAuthenticated, useMsal } from '@azure/msal-react'
 import { InteractionStatus } from '@azure/msal-browser'
-import { authMode, getApiScope, isAuthConfigured, loginRequest } from '../auth/msalConfig.js'
+import {
+  authMode,
+  getApiScope,
+  isAuthConfigured,
+  isLocalApiTarget,
+  loginRequest,
+} from '../auth/msalConfig.js'
 import { ROLES } from '../data/rolePermissions.js'
 
 const AuthContext = createContext(null)
@@ -65,7 +71,7 @@ export function AuthProvider({ children }) {
   const account = accounts[0] || null
   const roles = useMemo(() => getRoleClaims(account, accessTokenClaims), [account, accessTokenClaims])
   const primaryRole = roles[0] || null
-  const canContinueWithoutAuth = authMode === 'optional'
+  const canContinueWithoutAuth = authMode === 'optional' && isLocalApiTarget
 
   const acquireToken = useCallback(async () => {
     const scope = getApiScope()
@@ -130,6 +136,7 @@ export function AuthProvider({ children }) {
     logout,
     primaryRole,
     roles,
+    isLocalApiTarget,
     tokenError,
   }), [
     accessToken,
@@ -142,6 +149,7 @@ export function AuthProvider({ children }) {
     logout,
     primaryRole,
     roles,
+    isLocalApiTarget,
     tokenError,
   ])
 
