@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback } from 'react'
+import { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react'
 import { sendMessage as apiSendMessage } from '../services/api.js'
 
 // Action types
@@ -91,11 +91,25 @@ function chatReducer(state, action) {
 const ChatContext = createContext(null)
 
 // Provider component
-export function ChatProvider({ children }) {
+export function ChatProvider({ children, allowAnonymousRequests = false }) {
   const [state, dispatch] = useReducer(chatReducer, initialState)
+  const activeRequestIdRef = useRef(0)
+  const activeAbortControllerRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      activeAbortControllerRef.current?.abort()
+    }
+  }, [])
 
   const sendMessage = useCallback(async (content) => {
     if (!content.trim() || state.isLoading) return
+
+    const requestId = activeRequestIdRef.current + 1
+    activeRequestIdRef.current = requestId
+
+    const abortController = new AbortController()
+    activeAbortControllerRef.current = abortController
 
     // Generate temporary ID for user message
     const userMessageId = `user_${Date.now()}`
@@ -116,7 +130,14 @@ export function ChatProvider({ children }) {
 
     try {
       // Call API
-      const response = await apiSendMessage(content, state.conversationId)
+      const response = await apiSendMessage(content, state.conversationId, {
+        allowAnonymousRequest: allowAnonymousRequests,
+        signal: abortController.signal,
+      })
+
+      if (requestId !== activeRequestIdRef.current) {
+        return
+      }
 
       // Update conversation ID if this is a new conversation
       if (!state.conversationId && response.conversation_id) {
@@ -137,16 +158,28 @@ export function ChatProvider({ children }) {
         },
       })
     } catch (error) {
+      if (requestId !== activeRequestIdRef.current || error.code === 'ERR_CANCELED') {
+        return
+      }
+
       dispatch({
         type: ACTIONS.SET_ERROR,
         payload: error.message || 'Failed to send message. Please try again.',
       })
     } finally {
+      if (requestId !== activeRequestIdRef.current) {
+        return
+      }
+
+      activeAbortControllerRef.current = null
       dispatch({ type: ACTIONS.SET_LOADING, payload: false })
     }
-  }, [state.conversationId, state.isLoading])
+  }, [allowAnonymousRequests, state.conversationId, state.isLoading])
 
   const clearConversation = useCallback(() => {
+    activeRequestIdRef.current += 1
+    activeAbortControllerRef.current?.abort()
+    activeAbortControllerRef.current = null
     dispatch({ type: ACTIONS.CLEAR_CONVERSATION })
   }, [])
 

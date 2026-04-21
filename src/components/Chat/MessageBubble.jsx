@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown'
-import { format } from 'date-fns'
+import { format, isValid } from 'date-fns'
 import { SourceCard } from './SourceCard.jsx'
 import styles from './MessageBubble.module.css'
 
@@ -7,8 +7,9 @@ export function MessageBubble({ message }) {
   const { role, content, sources, timestamp } = message
   const isUser = role === 'user'
 
-  const formattedTime = timestamp
-    ? format(new Date(timestamp), 'h:mm a')
+  const date = timestamp ? new Date(timestamp) : null
+  const formattedTime = date && isValid(date)
+    ? format(date, 'h:mm a')
     : ''
 
   return (

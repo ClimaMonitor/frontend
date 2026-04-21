@@ -29,14 +29,16 @@ function normalizeRole(role) {
   return null
 }
 
-function parseJwtClaims(token) {
+export function parseJwtClaims(token) {
   if (!token) {
     return {}
   }
 
   try {
     const [, payload] = token.split('.')
-    return JSON.parse(window.atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4)
+    return JSON.parse(window.atob(padded))
   } catch {
     return {}
   }

@@ -30,15 +30,28 @@ function AppShell() {
 
   useEffect(() => {
     setAccessTokenProvider(async () => {
-      if (!isAuthenticated) {
-        return null
+      if (isAnonymousMode && isLocalApiTarget) {
+        return {
+          token: null,
+          allowAnonymousRequest: true,
+        }
       }
 
-      return getAccessToken()
+      if (!isAuthenticated) {
+        return {
+          token: null,
+          allowAnonymousRequest: false,
+        }
+      }
+
+      return {
+        token: await getAccessToken(),
+        allowAnonymousRequest: false,
+      }
     })
 
     return () => setAccessTokenProvider(null)
-  }, [getAccessToken, isAuthenticated])
+  }, [getAccessToken, isAnonymousMode, isAuthenticated])
 
   useEffect(() => {
     if (isAuthenticated && isAnonymousMode) {
@@ -60,7 +73,7 @@ function AppShell() {
 
   return (
     <SidebarProvider>
-      <ChatProvider>
+      <ChatProvider allowAnonymousRequests={isAnonymousMode && isLocalApiTarget}>
         <div className={styles.app}>
           <Header isAnonymousMode={isAnonymousMode} />
           <Sidebar isAnonymousMode={isAnonymousMode} />

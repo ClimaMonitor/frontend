@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { authMode } from '../auth/msalConfig.js'
 
 // Create axios instance with default config
 const api = axios.create({
@@ -22,17 +21,23 @@ api.interceptors.request.use(async (config) => {
   }
 
   try {
-    const token = await accessTokenProvider()
+    const authContext = await accessTokenProvider()
+    const token = authContext?.token ?? null
+    const allowAnonymousRequest = authContext?.allowAnonymousRequest === true
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+      return config
+    }
+
+    if (allowAnonymousRequest) {
+      return config
     }
   } catch (error) {
-    if (authMode !== 'optional') {
-      return Promise.reject(error)
-    }
+    return Promise.reject(error)
   }
 
-  return config
+  return Promise.reject(new Error('Authentication is required for this request.'))
 })
 
 // Response interceptor for consistent error handling
@@ -69,18 +74,22 @@ const CLASSROOM_ID = import.meta.env.VITE_CLASSROOM_ID || 'class_mock'
  * @param {string|null} conversationId - Optional conversation ID to continue a conversation
  * @returns {Promise<Object>} The API response with AI answer and sources
  */
-export async function sendMessage(message, conversationId = null) {
-  const payload = {
-    message,
-    user_id: USER_ID,
-    classroom_id: CLASSROOM_ID,
+export async function sendMessage(message, conversationId = null, options = {}) {
+  const payload = { message }
+
+  if (options.allowAnonymousRequest) {
+    payload.user_id = USER_ID
+    payload.classroom_id = CLASSROOM_ID
   }
 
   if (conversationId) {
     payload.conversation_id = conversationId
   }
 
-  const response = await api.post('/chat/completions', payload)
+  const response = await api.post('/chat/completions', payload, {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
   return response.data
 }
 
