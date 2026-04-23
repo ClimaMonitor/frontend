@@ -136,6 +136,20 @@
   font-size: var(--font-size-sm);
 }
 
+.errorIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .errorDismiss {
   padding: var(--space-xs);
   background: none;
