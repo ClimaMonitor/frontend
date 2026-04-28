@@ -5,70 +5,68 @@ import {
   createManagementClassroom,
   getManagementClassrooms,
   getManagementUsers,
-  removeClassroomMember,
   getTeacherClassroomStudents,
   getTeacherClassrooms,
-  updateManagementUser,
+  removeClassroomMember,
   updateManagementClassroom,
+  updateManagementUser,
   upsertClassroomMember,
 } from '../../services/api.js'
 import styles from './RoleDemoUI.module.css'
 
 const USER_ROLE_OPTIONS = [ROLES.STUDENT, ROLES.TEACHER, ROLES.ADMIN]
+const ADMIN_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'users', label: 'Users' },
+  { id: 'classrooms', label: 'Classrooms' },
+  { id: 'members', label: 'Members' },
+]
+const TEACHER_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'students', label: 'Students' },
+]
 
 export function RoleDemoUI() {
   const { currentUser, isAdmin, isTeacher, primaryRole } = useAuth()
 
   if (!primaryRole) {
     return (
-      <div className={styles.container}>
-        <Panel title="Role-based access" icon={<InfoIcon />}>
-          <p className={styles.infoNote}>
-            Sign in with a seeded account to load your ClimaMonitor role and classroom access.
-          </p>
-        </Panel>
-      </div>
+      <Workspace>
+        <EmptyState
+          icon={<InfoIcon />}
+          title="Role access"
+          message="Sign in with a seeded account to load your role and classroom access."
+        />
+      </Workspace>
     )
   }
 
   return (
-    <div className={styles.container}>
-      <ProfilePanel currentUser={currentUser} primaryRole={primaryRole} />
-      {isAdmin && <AdminOverview currentUser={currentUser} />}
-      {isTeacher && !isAdmin && <TeacherOverview />}
-      {primaryRole === ROLES.STUDENT && <StudentOverview currentUser={currentUser} />}
-    </div>
+    <Workspace>
+      {isAdmin && <AdminWorkspace currentUser={currentUser} primaryRole={primaryRole} />}
+      {isTeacher && !isAdmin && <TeacherWorkspace currentUser={currentUser} primaryRole={primaryRole} />}
+      {primaryRole === ROLES.STUDENT && <StudentWorkspace currentUser={currentUser} primaryRole={primaryRole} />}
+    </Workspace>
   )
 }
 
-function ProfilePanel({ currentUser, primaryRole }) {
-  return (
-    <Panel title="Profile" icon={<UserIcon />}>
-      <div className={styles.detailGrid}>
-        <Detail label="Role" value={primaryRole} />
-        <Detail label="Name" value={currentUser?.displayName || 'Unknown'} />
-        <Detail label="Email" value={currentUser?.email || 'Unknown'} />
-        <Detail label="Classrooms" value={String(currentUser?.classroomIds?.length || 0)} />
-      </div>
-    </Panel>
-  )
+function Workspace({ children }) {
+  return <div className={styles.workspace}>{children}</div>
 }
 
-function AdminOverview({ currentUser }) {
+function AdminWorkspace({ currentUser, primaryRole }) {
   const [users, setUsers] = useState([])
   const [classrooms, setClassrooms] = useState([])
   const [selectedClassroomId, setSelectedClassroomId] = useState('')
+  const [activeTab, setActiveTab] = useState('overview')
   const [isLoading, setIsLoading] = useState(true)
   const [pendingUserId, setPendingUserId] = useState(null)
   const [pendingClassroomId, setPendingClassroomId] = useState(null)
   const [pendingMembershipKey, setPendingMembershipKey] = useState(null)
   const [error, setError] = useState(null)
-  const [actionError, setActionError] = useState(null)
-  const [actionMessage, setActionMessage] = useState(null)
-  const [classroomError, setClassroomError] = useState(null)
-  const [classroomMessage, setClassroomMessage] = useState(null)
-  const [membershipError, setMembershipError] = useState(null)
-  const [membershipMessage, setMembershipMessage] = useState(null)
+  const [userNotice, setUserNotice] = useState(null)
+  const [classroomNotice, setClassroomNotice] = useState(null)
+  const [membershipNotice, setMembershipNotice] = useState(null)
 
   const refreshManagementData = useCallback(async () => {
     const [usersResponse, classroomsResponse] = await Promise.all([
@@ -82,12 +80,9 @@ function AdminOverview({ currentUser }) {
   const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
-    setActionError(null)
-    setActionMessage(null)
-    setClassroomError(null)
-    setClassroomMessage(null)
-    setMembershipError(null)
-    setMembershipMessage(null)
+    setUserNotice(null)
+    setClassroomNotice(null)
+    setMembershipNotice(null)
 
     try {
       await refreshManagementData()
@@ -112,14 +107,12 @@ function AdminOverview({ currentUser }) {
 
   const updateUser = useCallback(async (user, patch) => {
     if (user.user_id === currentUser?.userId) {
-      setActionError('Use the database directly if you need to change your own admin account.')
-      setActionMessage(null)
+      setUserNotice({ type: 'error', message: 'Use the database directly if you need to change your own admin account.' })
       return
     }
 
     setPendingUserId(user.user_id)
-    setActionError(null)
-    setActionMessage(null)
+    setUserNotice(null)
 
     try {
       const response = await updateManagementUser(user.user_id, patch)
@@ -128,9 +121,9 @@ function AdminOverview({ currentUser }) {
       setUsers((currentUsers) => currentUsers.map((current) => (
         current.user_id === updatedUser.user_id ? updatedUser : current
       )))
-      setActionMessage(`${updatedUser.display_name || updatedUser.email} updated.`)
+      setUserNotice({ type: 'success', message: `${updatedUser.display_name || updatedUser.email} updated.` })
     } catch (updateError) {
-      setActionError(updateError.message || 'Unable to update user.')
+      setUserNotice({ type: 'error', message: updateError.message || 'Unable to update user.' })
     } finally {
       setPendingUserId(null)
     }
@@ -138,18 +131,18 @@ function AdminOverview({ currentUser }) {
 
   const createClassroom = useCallback(async (name) => {
     setPendingClassroomId('new')
-    setClassroomError(null)
-    setClassroomMessage(null)
+    setClassroomNotice(null)
 
     try {
       const response = await createManagementClassroom({ name })
       const classroom = response.classroom
 
       setClassrooms((currentClassrooms) => [...currentClassrooms, classroom].sort(compareClassrooms))
-      setClassroomMessage(`${classroom.name} created.`)
+      setSelectedClassroomId(classroom.classroom_id)
+      setClassroomNotice({ type: 'success', message: `${classroom.name} created.` })
       return true
     } catch (createError) {
-      setClassroomError(createError.message || 'Unable to create classroom.')
+      setClassroomNotice({ type: 'error', message: createError.message || 'Unable to create classroom.' })
       return false
     } finally {
       setPendingClassroomId(null)
@@ -158,8 +151,7 @@ function AdminOverview({ currentUser }) {
 
   const updateClassroom = useCallback(async (classroom, patch) => {
     setPendingClassroomId(classroom.classroom_id)
-    setClassroomError(null)
-    setClassroomMessage(null)
+    setClassroomNotice(null)
 
     try {
       const response = await updateManagementClassroom(classroom.classroom_id, patch)
@@ -170,10 +162,10 @@ function AdminOverview({ currentUser }) {
           current.classroom_id === updatedClassroom.classroom_id ? updatedClassroom : current
         ))
         .sort(compareClassrooms))
-      setClassroomMessage(`${updatedClassroom.name} updated.`)
+      setClassroomNotice({ type: 'success', message: `${updatedClassroom.name} updated.` })
       return true
     } catch (updateError) {
-      setClassroomError(updateError.message || 'Unable to update classroom.')
+      setClassroomNotice({ type: 'error', message: updateError.message || 'Unable to update classroom.' })
       return false
     } finally {
       setPendingClassroomId(null)
@@ -182,8 +174,7 @@ function AdminOverview({ currentUser }) {
 
   const addMembership = useCallback(async ({ classroomId, userId, membershipRole }) => {
     setPendingMembershipKey(`add:${classroomId}`)
-    setMembershipError(null)
-    setMembershipMessage(null)
+    setMembershipNotice(null)
 
     try {
       await upsertClassroomMember(classroomId, {
@@ -191,10 +182,10 @@ function AdminOverview({ currentUser }) {
         membership_role: membershipRole,
       })
       await refreshManagementData()
-      setMembershipMessage('Membership added.')
+      setMembershipNotice({ type: 'success', message: 'Membership added.' })
       return true
     } catch (addError) {
-      setMembershipError(addError.message || 'Unable to add classroom membership.')
+      setMembershipNotice({ type: 'error', message: addError.message || 'Unable to add classroom membership.' })
       return false
     } finally {
       setPendingMembershipKey(null)
@@ -203,15 +194,14 @@ function AdminOverview({ currentUser }) {
 
   const removeMembership = useCallback(async (classroomId, user) => {
     setPendingMembershipKey(`remove:${classroomId}:${user.user_id}`)
-    setMembershipError(null)
-    setMembershipMessage(null)
+    setMembershipNotice(null)
 
     try {
       await removeClassroomMember(classroomId, user.user_id)
       await refreshManagementData()
-      setMembershipMessage(`${user.display_name || user.email} removed from classroom.`)
+      setMembershipNotice({ type: 'success', message: `${user.display_name || user.email} removed from classroom.` })
     } catch (removeError) {
-      setMembershipError(removeError.message || 'Unable to remove classroom membership.')
+      setMembershipNotice({ type: 'error', message: removeError.message || 'Unable to remove classroom membership.' })
     } finally {
       setPendingMembershipKey(null)
     }
@@ -225,86 +215,159 @@ function AdminOverview({ currentUser }) {
 
   return (
     <>
-      <Panel
-        title="Management"
-        icon={<DashboardIcon />}
+      <WorkspaceHero
         action={<RefreshButton onClick={load} disabled={isLoading} />}
+        currentUser={currentUser}
+        icon={<DashboardIcon />}
+        kicker="Admin workspace"
+        primaryRole={primaryRole}
+        title="Manage access"
       >
+        <MetricStrip>
+          <Metric value={users.length} label="Users" />
+          <Metric value={classrooms.length} label="Classrooms" />
+          <Metric value={counts.teachers} label="Teachers" />
+          <Metric value={counts.students} label="Students" />
+        </MetricStrip>
+      </WorkspaceHero>
+
+      <Tabs activeTab={activeTab} tabs={ADMIN_TABS} onChange={setActiveTab} />
+
+      <div className={styles.tabPanel}>
         {isLoading ? (
-          <p className={styles.infoNote}>Loading management data...</p>
+          <EmptyState icon={<InfoIcon />} title="Loading management data" message="Fetching users and classrooms from the backend." />
         ) : error ? (
-          <p className={styles.errorNote}>{error}</p>
+          <EmptyState icon={<InfoIcon />} title="Management data unavailable" message={error} tone="error" />
         ) : (
-          <div className={styles.statCards}>
-            <Stat value={users.length} label="Users" />
-            <Stat value={classrooms.length} label="Classrooms" />
-          </div>
+          <>
+            {activeTab === 'overview' && (
+              <AdminOverview
+                classrooms={classrooms}
+                counts={counts}
+                currentUser={currentUser}
+                users={users}
+                onOpenTab={setActiveTab}
+              />
+            )}
+            {activeTab === 'users' && (
+              <UsersPanel
+                counts={counts}
+                currentUserId={currentUser?.userId}
+                notice={userNotice}
+                onUpdate={updateUser}
+                pendingUserId={pendingUserId}
+                users={users}
+              />
+            )}
+            {activeTab === 'classrooms' && (
+              <ClassroomsPanel
+                classrooms={classrooms}
+                notice={classroomNotice}
+                onCreate={createClassroom}
+                onUpdate={updateClassroom}
+                pendingClassroomId={pendingClassroomId}
+              />
+            )}
+            {activeTab === 'members' && (
+              <MembershipPanel
+                classrooms={classrooms}
+                notice={membershipNotice}
+                onAdd={addMembership}
+                onRemove={removeMembership}
+                onSelectClassroom={setSelectedClassroomId}
+                pendingKey={pendingMembershipKey}
+                selectedClassroomId={selectedClassroomId}
+                users={users}
+              />
+            )}
+          </>
         )}
-      </Panel>
-
-      {!isLoading && !error && (
-        <>
-          <Panel title="Users" icon={<UsersIcon />}>
-            <div className={styles.statCards}>
-              <Stat value={counts.admins} label="Admins" />
-              <Stat value={counts.teachers} label="Teachers" />
-              <Stat value={counts.students} label="Students" />
-            </div>
-            {actionError && <p className={styles.errorNote}>{actionError}</p>}
-            {actionMessage && <p className={styles.successNote}>{actionMessage}</p>}
-            <List
-              items={users}
-              emptyLabel="No users found."
-              renderItem={(user) => (
-                <UserManagementRow
-                  currentUserId={currentUser?.userId}
-                  isPending={pendingUserId === user.user_id}
-                  onUpdate={updateUser}
-                  user={user}
-                />
-              )}
-            />
-          </Panel>
-
-          <Panel title="Classrooms" icon={<SchoolIcon />}>
-            <CreateClassroomForm
-              disabled={pendingClassroomId === 'new'}
-              onCreate={createClassroom}
-            />
-            {classroomError && <p className={styles.errorNote}>{classroomError}</p>}
-            {classroomMessage && <p className={styles.successNote}>{classroomMessage}</p>}
-            <List
-              items={classrooms}
-              emptyLabel="No classrooms found."
-              renderItem={(classroom) => (
-                <ClassroomManagementRow
-                  classroom={classroom}
-                  isPending={pendingClassroomId === classroom.classroom_id}
-                  onUpdate={updateClassroom}
-                />
-              )}
-            />
-          </Panel>
-
-          <MembershipPanel
-            classrooms={classrooms}
-            error={membershipError}
-            message={membershipMessage}
-            onAdd={addMembership}
-            onRemove={removeMembership}
-            onSelectClassroom={setSelectedClassroomId}
-            pendingKey={pendingMembershipKey}
-            selectedClassroomId={selectedClassroomId}
-            users={users}
-          />
-        </>
-      )}
+      </div>
     </>
   )
 }
 
-function compareClassrooms(a, b) {
-  return (a.name || '').localeCompare(b.name || '')
+function AdminOverview({ classrooms, counts, currentUser, users, onOpenTab }) {
+  const activeClassrooms = classrooms.filter((classroom) => classroom.active === true).length
+  const activeUsers = users.filter((user) => user.active === true).length
+
+  return (
+    <div className={styles.panelStack}>
+      <Section title="Snapshot" icon={<DashboardIcon />}>
+        <div className={styles.summaryGrid}>
+          <SummaryItem label="Signed in as" value={currentUser?.displayName || currentUser?.email || 'Unknown'} />
+          <SummaryItem label="Active users" value={`${activeUsers} of ${users.length}`} />
+          <SummaryItem label="Active classrooms" value={`${activeClassrooms} of ${classrooms.length}`} />
+          <SummaryItem label="Role mix" value={`${counts.admins} admin / ${counts.teachers} teacher / ${counts.students} student`} />
+        </div>
+      </Section>
+
+      <Section title="Common tasks" icon={<InfoIcon />}>
+        <div className={styles.actionGrid}>
+          <button type="button" className={styles.taskButton} onClick={() => onOpenTab('users')}>
+            <span>Review users</span>
+            <small>Set role and active status</small>
+          </button>
+          <button type="button" className={styles.taskButton} onClick={() => onOpenTab('classrooms')}>
+            <span>Manage classrooms</span>
+            <small>Create, rename, or deactivate</small>
+          </button>
+          <button type="button" className={styles.taskButton} onClick={() => onOpenTab('members')}>
+            <span>Edit memberships</span>
+            <small>Add teachers and students</small>
+          </button>
+        </div>
+      </Section>
+    </div>
+  )
+}
+
+function UsersPanel({ counts, currentUserId, notice, onUpdate, pendingUserId, users }) {
+  return (
+    <Section title="Users" icon={<UsersIcon />}>
+      <MetricStrip>
+        <Metric value={counts.admins} label="Admins" />
+        <Metric value={counts.teachers} label="Teachers" />
+        <Metric value={counts.students} label="Students" />
+      </MetricStrip>
+      <Notice notice={notice} />
+      <List
+        items={users}
+        emptyLabel="No users found."
+        renderItem={(user) => (
+          <UserManagementRow
+            currentUserId={currentUserId}
+            isPending={pendingUserId === user.user_id}
+            onUpdate={onUpdate}
+            user={user}
+          />
+        )}
+      />
+    </Section>
+  )
+}
+
+function ClassroomsPanel({ classrooms, notice, onCreate, onUpdate, pendingClassroomId }) {
+  return (
+    <Section title="Classrooms" icon={<SchoolIcon />}>
+      <CreateClassroomForm
+        disabled={pendingClassroomId === 'new'}
+        onCreate={onCreate}
+      />
+      <Notice notice={notice} />
+      <List
+        items={classrooms}
+        emptyLabel="No classrooms found."
+        renderItem={(classroom) => (
+          <ClassroomManagementRow
+            classroom={classroom}
+            isPending={pendingClassroomId === classroom.classroom_id}
+            onUpdate={onUpdate}
+          />
+        )}
+      />
+    </Section>
+  )
 }
 
 function UserManagementRow({ currentUserId, isPending, onUpdate, user }) {
@@ -313,12 +376,12 @@ function UserManagementRow({ currentUserId, isPending, onUpdate, user }) {
   const label = user.display_name || user.email || 'Unknown user'
 
   return (
-    <div className={styles.managementRow}>
-      <div className={styles.managementIdentity}>
-        <span className={styles.itemMain}>{label}</span>
+    <div className={styles.row}>
+      <div className={styles.rowMain}>
+        <span className={styles.itemTitle}>{label}</span>
         <span className={styles.itemMeta}>{user.email}</span>
       </div>
-      <div className={styles.managementControls}>
+      <div className={styles.rowControls}>
         <select
           aria-label={`Role for ${label}`}
           className={styles.compactSelect}
@@ -398,8 +461,8 @@ function ClassroomManagementRow({ classroom, isPending, onUpdate }) {
   }
 
   return (
-    <form className={styles.managementRow} onSubmit={handleSubmit}>
-      <div className={styles.managementIdentity}>
+    <form className={styles.row} onSubmit={handleSubmit}>
+      <div className={styles.rowMain}>
         <input
           aria-label={`Name for ${classroom.name}`}
           className={styles.textInput}
@@ -412,7 +475,7 @@ function ClassroomManagementRow({ classroom, isPending, onUpdate }) {
           {classroom.teacher_count} teachers / {classroom.student_count} students
         </span>
       </div>
-      <div className={styles.managementControls}>
+      <div className={styles.rowControls}>
         <label className={styles.toggleLabel}>
           <input
             checked={classroom.active === true}
@@ -436,8 +499,7 @@ function ClassroomManagementRow({ classroom, isPending, onUpdate }) {
 
 function MembershipPanel({
   classrooms,
-  error,
-  message,
+  notice,
   onAdd,
   onRemove,
   onSelectClassroom,
@@ -452,7 +514,7 @@ function MembershipPanel({
   )
 
   return (
-    <Panel title="Memberships" icon={<UsersIcon />}>
+    <Section title="Memberships" icon={<UsersIcon />}>
       {classrooms.length ? (
         <>
           <select
@@ -475,8 +537,7 @@ function MembershipPanel({
             users={users}
           />
 
-          {error && <p className={styles.errorNote}>{error}</p>}
-          {message && <p className={styles.successNote}>{message}</p>}
+          <Notice notice={notice} />
 
           <List
             items={memberships}
@@ -492,9 +553,9 @@ function MembershipPanel({
           />
         </>
       ) : (
-        <p className={styles.infoNote}>Create a classroom before adding members.</p>
+        <EmptyState icon={<SchoolIcon />} title="No classrooms yet" message="Create a classroom before adding members." />
       )}
-    </Panel>
+    </Section>
   )
 }
 
@@ -573,9 +634,9 @@ function MembershipRow({ classroomId, isPending, membership, onRemove }) {
   const { role, user } = membership
 
   return (
-    <div className={styles.managementRow}>
-      <div className={styles.managementIdentity}>
-        <span className={styles.itemMain}>{user.display_name || user.email}</span>
+    <div className={styles.row}>
+      <div className={styles.rowMain}>
+        <span className={styles.itemTitle}>{user.display_name || user.email}</span>
         <span className={getRoleBadgeClass(role)}>{role}</span>
       </div>
       <button
@@ -590,36 +651,11 @@ function MembershipRow({ classroomId, isPending, membership, onRemove }) {
   )
 }
 
-function getActiveClassroomMemberships(users, classroomId) {
-  if (!classroomId) return []
-
-  return users
-    .map((user) => {
-      const membership = user.classroom_memberships?.find((entry) => (
-        entry.classroom_id === classroomId && entry.active === true
-      ))
-
-      return membership ? { role: membership.role, user } : null
-    })
-    .filter(Boolean)
-    .sort((a, b) => (
-      a.role.localeCompare(b.role) ||
-      (a.user.display_name || a.user.email || '').localeCompare(b.user.display_name || b.user.email || '')
-    ))
-}
-
-function hasActiveMembership(user, classroomId) {
-  if (!classroomId) return false
-
-  return user.classroom_memberships?.some((membership) => (
-    membership.classroom_id === classroomId && membership.active === true
-  )) === true
-}
-
-function TeacherOverview() {
+function TeacherWorkspace({ currentUser, primaryRole }) {
   const [classrooms, setClassrooms] = useState([])
   const [selectedClassroomId, setSelectedClassroomId] = useState('')
   const [students, setStudents] = useState([])
+  const [activeTab, setActiveTab] = useState('overview')
   const [isLoading, setIsLoading] = useState(true)
   const [isStudentsLoading, setIsStudentsLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -651,7 +687,7 @@ function TeacherOverview() {
   useEffect(() => {
     if (!selectedClassroomId) {
       setStudents([])
-      return
+      return undefined
     }
 
     let isMounted = true
@@ -676,20 +712,60 @@ function TeacherOverview() {
     }
   }, [selectedClassroomId])
 
+  const selectedClassroom = classrooms.find((classroom) => classroom.classroom_id === selectedClassroomId)
+
   return (
     <>
-      <Panel
-        title="Classrooms"
-        icon={<SchoolIcon />}
+      <WorkspaceHero
         action={<RefreshButton onClick={loadClassrooms} disabled={isLoading} />}
+        currentUser={currentUser}
+        icon={<SchoolIcon />}
+        kicker="Teacher workspace"
+        primaryRole={primaryRole}
+        title="Classroom view"
       >
+        <MetricStrip>
+          <Metric value={classrooms.length} label="Classrooms" />
+          <Metric value={students.length} label="Students shown" />
+        </MetricStrip>
+      </WorkspaceHero>
+
+      <Tabs activeTab={activeTab} tabs={TEACHER_TABS} onChange={setActiveTab} />
+
+      <div className={styles.tabPanel}>
         {isLoading ? (
-          <p className={styles.infoNote}>Loading classrooms...</p>
+          <EmptyState icon={<InfoIcon />} title="Loading classrooms" message="Fetching your active classroom memberships." />
         ) : error ? (
-          <p className={styles.errorNote}>{error}</p>
-        ) : classrooms.length ? (
+          <EmptyState icon={<InfoIcon />} title="Teacher data unavailable" message={error} tone="error" />
+        ) : activeTab === 'overview' ? (
+          <TeacherOverviewPanel
+            classrooms={classrooms}
+            selectedClassroom={selectedClassroom}
+            selectedClassroomId={selectedClassroomId}
+            setSelectedClassroomId={setSelectedClassroomId}
+          />
+        ) : (
+          <TeacherStudentsPanel
+            classrooms={classrooms}
+            isStudentsLoading={isStudentsLoading}
+            selectedClassroomId={selectedClassroomId}
+            setSelectedClassroomId={setSelectedClassroomId}
+            students={students}
+          />
+        )}
+      </div>
+    </>
+  )
+}
+
+function TeacherOverviewPanel({ classrooms, selectedClassroom, selectedClassroomId, setSelectedClassroomId }) {
+  return (
+    <div className={styles.panelStack}>
+      <Section title="Classroom" icon={<SchoolIcon />}>
+        {classrooms.length ? (
           <>
             <select
+              aria-label="Teacher classroom"
               className={styles.select}
               value={selectedClassroomId}
               onChange={(event) => setSelectedClassroomId(event.target.value)}
@@ -700,66 +776,135 @@ function TeacherOverview() {
                 </option>
               ))}
             </select>
-            <List
-              items={classrooms}
-              emptyLabel="No classrooms found."
-              renderItem={(classroom) => (
-                <>
-                  <span className={styles.itemMain}>{classroom.name}</span>
-                  <span className={styles.itemMeta}>{classroom.student_count} students</span>
-                </>
-              )}
-            />
+            <div className={styles.summaryGrid}>
+              <SummaryItem label="Selected classroom" value={selectedClassroom?.name || 'None'} />
+              <SummaryItem label="Students" value={String(selectedClassroom?.student_count || 0)} />
+            </div>
           </>
         ) : (
-          <p className={styles.infoNote}>No active classroom memberships found.</p>
+          <EmptyState icon={<SchoolIcon />} title="No classrooms" message="No active classroom memberships found." />
         )}
-      </Panel>
+      </Section>
+    </div>
+  )
+}
 
-      <Panel title="Students" icon={<UsersIcon />}>
-        {isStudentsLoading ? (
-          <p className={styles.infoNote}>Loading students...</p>
-        ) : (
-          <List
-            items={students}
-            emptyLabel="No students found for this classroom."
-            renderItem={(student) => (
-              <>
-                <span className={styles.itemMain}>{student.display_name || student.email}</span>
-                <span className={styles.itemMeta}>{student.active ? 'active' : 'inactive'}</span>
-              </>
-            )}
-          />
-        )}
-      </Panel>
+function TeacherStudentsPanel({ classrooms, isStudentsLoading, selectedClassroomId, setSelectedClassroomId, students }) {
+  return (
+    <Section title="Students" icon={<UsersIcon />}>
+      {classrooms.length ? (
+        <>
+          <select
+            aria-label="Teacher student classroom"
+            className={styles.select}
+            value={selectedClassroomId}
+            onChange={(event) => setSelectedClassroomId(event.target.value)}
+          >
+            {classrooms.map((classroom) => (
+              <option key={classroom.classroom_id} value={classroom.classroom_id}>
+                {classroom.name}
+              </option>
+            ))}
+          </select>
+          {isStudentsLoading ? (
+            <EmptyState icon={<InfoIcon />} title="Loading students" message="Fetching the selected classroom roster." />
+          ) : (
+            <List
+              items={students}
+              emptyLabel="No students found for this classroom."
+              renderItem={(student) => (
+                <div className={styles.row}>
+                  <div className={styles.rowMain}>
+                    <span className={styles.itemTitle}>{student.display_name || student.email}</span>
+                    <span className={styles.itemMeta}>{student.email}</span>
+                  </div>
+                  <span className={student.active ? styles.statusPill : styles.inactivePill}>
+                    {student.active ? 'active' : 'inactive'}
+                  </span>
+                </div>
+              )}
+            />
+          )}
+        </>
+      ) : (
+        <EmptyState icon={<SchoolIcon />} title="No classrooms" message="No active classroom memberships found." />
+      )}
+    </Section>
+  )
+}
+
+function StudentWorkspace({ currentUser, primaryRole }) {
+  return (
+    <>
+      <WorkspaceHero
+        currentUser={currentUser}
+        icon={<UserIcon />}
+        kicker="Student workspace"
+        primaryRole={primaryRole}
+        title="Your access"
+      >
+        <MetricStrip>
+          <Metric value={currentUser?.classroomIds?.length || 0} label="Classrooms" />
+        </MetricStrip>
+      </WorkspaceHero>
+
+      <Section title="Access" icon={<InfoIcon />}>
+        <EmptyState
+          icon={<InfoIcon />}
+          title="Ready for chat"
+          message={`Your account is active in ${currentUser?.classroomIds?.length || 0} ${currentUser?.classroomIds?.length === 1 ? 'classroom' : 'classrooms'}.`}
+        />
+      </Section>
     </>
   )
 }
 
-function StudentOverview({ currentUser }) {
+function WorkspaceHero({ action, children, currentUser, icon, kicker, primaryRole, title }) {
   return (
-    <Panel title="Student Access" icon={<InfoIcon />}>
-      <p className={styles.infoNote}>
-        Your account is active in {currentUser?.classroomIds?.length || 0} {currentUser?.classroomIds?.length === 1 ? 'classroom' : 'classrooms'}.
-      </p>
-    </Panel>
+    <header className={styles.hero}>
+      <div className={styles.heroTop}>
+        <div className={styles.heroIcon}>{icon}</div>
+        <div className={styles.heroText}>
+          <span className={styles.kicker}>{kicker}</span>
+          <h2>{title}</h2>
+          <p>{currentUser?.displayName || currentUser?.email || 'Unknown user'} · {primaryRole}</p>
+        </div>
+        {action}
+      </div>
+      {children}
+    </header>
   )
 }
 
-function getRoleBadgeClass(role) {
-  return [styles.roleBadge, styles[role]].filter(Boolean).join(' ')
+function Tabs({ activeTab, onChange, tabs }) {
+  return (
+    <div className={styles.tabs} role="tablist" aria-label="Role workspace sections">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          aria-selected={activeTab === tab.id}
+          className={`${styles.tabButton} ${activeTab === tab.id ? styles.tabButtonActive : ''}`}
+          onClick={() => onChange(tab.id)}
+          role="tab"
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
-function Panel({ title, icon, action, children }) {
+function Section({ action, children, icon, title }) {
   return (
     <section className={styles.section}>
-      <h3 className={styles.sectionHeader}>
+      <div className={styles.sectionHeader}>
         <span className={styles.sectionTitle}>
           {icon}
           {title}
         </span>
         {action}
-      </h3>
+      </div>
       <div className={styles.sectionContent}>
         {children}
       </div>
@@ -767,18 +912,85 @@ function Panel({ title, icon, action, children }) {
   )
 }
 
-function Detail({ label, value }) {
+function MetricStrip({ children }) {
+  return <div className={styles.metricStrip}>{children}</div>
+}
+
+function Metric({ value, label }) {
   return (
-    <div className={styles.detailItem}>
-      <span className={styles.detailLabel}>{label}</span>
-      <span className={styles.detailValue}>{value || 'None'}</span>
+    <div className={styles.metric}>
+      <span>{value}</span>
+      <small>{label}</small>
     </div>
   )
 }
 
+function SummaryItem({ label, value }) {
+  return (
+    <div className={styles.summaryItem}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function Notice({ notice }) {
+  if (!notice) return null
+
+  return (
+    <p className={notice.type === 'error' ? styles.errorNote : styles.successNote}>
+      {notice.message}
+    </p>
+  )
+}
+
+function EmptyState({ icon, message, title, tone = 'neutral' }) {
+  return (
+    <div className={`${styles.emptyState} ${tone === 'error' ? styles.emptyStateError : ''}`}>
+      <span className={styles.emptyIcon}>{icon}</span>
+      <strong>{title}</strong>
+      <p>{message}</p>
+    </div>
+  )
+}
+
+function compareClassrooms(a, b) {
+  return (a.name || '').localeCompare(b.name || '')
+}
+
+function getActiveClassroomMemberships(users, classroomId) {
+  if (!classroomId) return []
+
+  return users
+    .map((user) => {
+      const membership = user.classroom_memberships?.find((entry) => (
+        entry.classroom_id === classroomId && entry.active === true
+      ))
+
+      return membership ? { role: membership.role, user } : null
+    })
+    .filter(Boolean)
+    .sort((a, b) => (
+      a.role.localeCompare(b.role) ||
+      (a.user.display_name || a.user.email || '').localeCompare(b.user.display_name || b.user.email || '')
+    ))
+}
+
+function hasActiveMembership(user, classroomId) {
+  if (!classroomId) return false
+
+  return user.classroom_memberships?.some((membership) => (
+    membership.classroom_id === classroomId && membership.active === true
+  )) === true
+}
+
+function getRoleBadgeClass(role) {
+  return [styles.roleBadge, styles[role]].filter(Boolean).join(' ')
+}
+
 function List({ items, emptyLabel, renderItem }) {
   if (!items.length) {
-    return <p className={styles.infoNote}>{emptyLabel}</p>
+    return <EmptyState icon={<InfoIcon />} title="Nothing here yet" message={emptyLabel} />
   }
 
   return (
@@ -789,15 +1001,6 @@ function List({ items, emptyLabel, renderItem }) {
         </li>
       ))}
     </ul>
-  )
-}
-
-function Stat({ value, label }) {
-  return (
-    <div className={styles.statCard}>
-      <span className={styles.statNumber}>{value}</span>
-      <span className={styles.statLabel}>{label}</span>
-    </div>
   )
 }
 

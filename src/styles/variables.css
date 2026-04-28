@@ -46,9 +46,9 @@
   --transition-normal: 250ms ease;
 
   /* Sidebar */
-  --sidebar-width: 400px;
-  --sidebar-width-min: 280px;
-  --sidebar-width-max: 50vw;
+  --sidebar-width: 520px;
+  --sidebar-width-min: 360px;
+  --sidebar-width-max: min(760px, calc(100vw - 24px));
 }
 
 /* Global resets */

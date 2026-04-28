@@ -131,6 +131,7 @@ describe('RoleDemoUI admin management', () => {
   it('lets admins update an existing user role', async () => {
     render(<RoleDemoUI />)
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Users' }))
     const roleSelect = await screen.findByLabelText('Role for Student User')
     fireEvent.change(roleSelect, { target: { value: ROLES.TEACHER } })
 
@@ -143,6 +144,7 @@ describe('RoleDemoUI admin management', () => {
   it('lets admins create classrooms', async () => {
     render(<RoleDemoUI />)
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Classrooms' }))
     const input = await screen.findByLabelText('New classroom name')
     fireEvent.change(input, { target: { value: 'New Class' } })
     fireEvent.submit(input.closest('form'))
@@ -156,6 +158,7 @@ describe('RoleDemoUI admin management', () => {
   it('lets admins add and remove classroom memberships', async () => {
     render(<RoleDemoUI />)
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Members' }))
     const userSelect = await screen.findByLabelText('User to add')
 
     fireEvent.submit(userSelect.closest('form'))

@@ -11,7 +11,7 @@ const ACTIONS = {
 // Initial state
 const initialState = {
   isOpen: false,
-  width: 400,
+  width: 520,
 }
 
 // Reducer
@@ -67,8 +67,8 @@ export function SidebarProvider({ children }) {
 
   const setWidth = useCallback((width) => {
     // Clamp width between min and max
-    const minWidth = 280
-    const maxWidth = window.innerWidth * 0.5
+    const minWidth = 360
+    const maxWidth = Math.min(Math.max(window.innerWidth - 24, minWidth), 760)
     const clampedWidth = Math.min(Math.max(width, minWidth), maxWidth)
     dispatch({ type: ACTIONS.SET_WIDTH, payload: clampedWidth })
   }, [])
