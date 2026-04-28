@@ -8,7 +8,7 @@ export function LoginPage({ onContinueWithoutAuth }) {
     isLocalApiTarget,
     isLoading,
     login,
-    tokenError,
+    authError,
   } = useAuth()
 
   return (
@@ -36,7 +36,7 @@ export function LoginPage({ onContinueWithoutAuth }) {
           </div>
         )}
 
-        {tokenError && <div className={styles.error}>{tokenError}</div>}
+        {authError && <div className={styles.error}>{authError}</div>}
 
         {!isLocalApiTarget && (
           <div className={styles.notice}>

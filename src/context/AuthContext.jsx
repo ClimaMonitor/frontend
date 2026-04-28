@@ -16,6 +16,7 @@ import {
   loginRequest,
 } from '../auth/msalConfig.js'
 import { ROLES } from '../data/rolePermissions.js'
+import { getCurrentUser } from '../services/api.js'
 
 const AuthContext = createContext(null)
 
@@ -63,15 +64,49 @@ function getDisplayName(account) {
   return claims.name || claims.preferred_username || account?.username || 'ClimaMonitor user'
 }
 
+function normalizeCurrentUser(rawUser) {
+  if (!rawUser) return null
+
+  const role = normalizeRole(rawUser.role)
+
+  return {
+    userId: rawUser.user_id || null,
+    externalId: rawUser.external_id || null,
+    email: rawUser.email || null,
+    displayName: rawUser.display_name || null,
+    firstName: rawUser.fname || null,
+    lastName: rawUser.lname || null,
+    role,
+    active: rawUser.active === true,
+    schoolId: rawUser.school_id || null,
+    classroomId: rawUser.classroom_id || null,
+    classroomIds: Array.isArray(rawUser.classroom_ids) ? rawUser.classroom_ids : [],
+    classroomMemberships: Array.isArray(rawUser.classroom_memberships)
+      ? rawUser.classroom_memberships
+      : [],
+  }
+}
+
+function getDbRoles(currentUser) {
+  return currentUser?.role ? [currentUser.role] : []
+}
+
 export function AuthProvider({ children }) {
   const { instance, accounts, inProgress } = useMsal()
   const isAuthenticated = useIsAuthenticated()
   const [accessToken, setAccessToken] = useState(null)
   const [accessTokenClaims, setAccessTokenClaims] = useState({})
+  const [currentUser, setCurrentUser] = useState(null)
+  const [userContextError, setUserContextError] = useState(null)
+  const [isUserContextLoading, setIsUserContextLoading] = useState(false)
   const [tokenError, setTokenError] = useState(null)
 
   const account = accounts[0] || null
-  const roles = useMemo(() => getRoleClaims(account, accessTokenClaims), [account, accessTokenClaims])
+  const tokenRoles = useMemo(() => getRoleClaims(account, accessTokenClaims), [account, accessTokenClaims])
+  const roles = useMemo(() => {
+    const dbRoles = getDbRoles(currentUser)
+    return dbRoles.length ? dbRoles : tokenRoles
+  }, [currentUser, tokenRoles])
   const primaryRole = roles[0] || null
   const canContinueWithoutAuth = authMode === 'optional' && isLocalApiTarget
 
@@ -103,11 +138,45 @@ export function AuthProvider({ children }) {
     if (!isAuthenticated || !account || !isAuthConfigured) {
       setAccessToken(null)
       setAccessTokenClaims({})
+      setCurrentUser(null)
+      setUserContextError(null)
       return
     }
 
     acquireToken().catch(() => {})
   }, [acquireToken, account, isAuthenticated])
+
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken) {
+      setCurrentUser(null)
+      setUserContextError(null)
+      setIsUserContextLoading(false)
+      return
+    }
+
+    let isMounted = true
+    setIsUserContextLoading(true)
+    setUserContextError(null)
+
+    getCurrentUser()
+      .then((response) => {
+        if (!isMounted) return
+        setCurrentUser(normalizeCurrentUser(response.user))
+      })
+      .catch((error) => {
+        if (!isMounted) return
+        setCurrentUser(null)
+        setUserContextError(error.message || 'Unable to load your ClimaMonitor profile.')
+      })
+      .finally(() => {
+        if (!isMounted) return
+        setIsUserContextLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [accessToken, isAuthenticated])
 
   const login = useCallback(async () => {
     if (!isAuthConfigured) {
@@ -128,12 +197,15 @@ export function AuthProvider({ children }) {
   const value = useMemo(() => ({
     accessToken,
     canContinueWithoutAuth,
-    displayName: getDisplayName(account),
-    email: account?.username || null,
+    currentUser,
+    displayName: currentUser?.displayName || getDisplayName(account),
+    email: currentUser?.email || account?.username || null,
     getAccessToken: acquireToken,
+    authError: userContextError || tokenError,
     isAuthenticated,
     isAuthConfigured,
-    isLoading: inProgress !== InteractionStatus.None,
+    isLoading: inProgress !== InteractionStatus.None || isUserContextLoading,
+    isUserContextLoading,
     login,
     logout,
     primaryRole,
@@ -145,14 +217,17 @@ export function AuthProvider({ children }) {
     account,
     acquireToken,
     canContinueWithoutAuth,
+    currentUser,
     inProgress,
     isAuthenticated,
+    isUserContextLoading,
     login,
     logout,
     primaryRole,
     roles,
     isLocalApiTarget,
     tokenError,
+    userContextError,
   ])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -164,4 +239,9 @@ export function useAuthContext() {
     throw new Error('useAuthContext must be used within an AuthProvider')
   }
   return context
+}
+
+export {
+  normalizeCurrentUser,
+  normalizeRole,
 }
