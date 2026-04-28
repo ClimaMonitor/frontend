@@ -6,8 +6,11 @@ import {
   getManagementUsers,
   getTeacherClassroomStudents,
   getTeacherClassrooms,
+  updateManagementUser,
 } from '../../services/api.js'
 import styles from './RoleDemoUI.module.css'
+
+const USER_ROLE_OPTIONS = [ROLES.STUDENT, ROLES.TEACHER, ROLES.ADMIN]
 
 export function RoleDemoUI() {
   const { currentUser, isAdmin, isTeacher, primaryRole } = useAuth()
@@ -27,7 +30,7 @@ export function RoleDemoUI() {
   return (
     <div className={styles.container}>
       <ProfilePanel currentUser={currentUser} primaryRole={primaryRole} />
-      {isAdmin && <AdminOverview />}
+      {isAdmin && <AdminOverview currentUser={currentUser} />}
       {isTeacher && !isAdmin && <TeacherOverview />}
       {primaryRole === ROLES.STUDENT && <StudentOverview currentUser={currentUser} />}
     </div>
@@ -47,15 +50,20 @@ function ProfilePanel({ currentUser, primaryRole }) {
   )
 }
 
-function AdminOverview() {
+function AdminOverview({ currentUser }) {
   const [users, setUsers] = useState([])
   const [classrooms, setClassrooms] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [pendingUserId, setPendingUserId] = useState(null)
   const [error, setError] = useState(null)
+  const [actionError, setActionError] = useState(null)
+  const [actionMessage, setActionMessage] = useState(null)
 
   const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
+    setActionError(null)
+    setActionMessage(null)
 
     try {
       const [usersResponse, classroomsResponse] = await Promise.all([
@@ -74,6 +82,32 @@ function AdminOverview() {
   useEffect(() => {
     load()
   }, [load])
+
+  const updateUser = useCallback(async (user, patch) => {
+    if (user.user_id === currentUser?.userId) {
+      setActionError('Use the database directly if you need to change your own admin account.')
+      setActionMessage(null)
+      return
+    }
+
+    setPendingUserId(user.user_id)
+    setActionError(null)
+    setActionMessage(null)
+
+    try {
+      const response = await updateManagementUser(user.user_id, patch)
+      const updatedUser = response.user
+
+      setUsers((currentUsers) => currentUsers.map((current) => (
+        current.user_id === updatedUser.user_id ? updatedUser : current
+      )))
+      setActionMessage(`${updatedUser.display_name || updatedUser.email} updated.`)
+    } catch (updateError) {
+      setActionError(updateError.message || 'Unable to update user.')
+    } finally {
+      setPendingUserId(null)
+    }
+  }, [currentUser?.userId])
 
   const counts = useMemo(() => ({
     admins: users.filter((user) => user.role === ROLES.ADMIN).length,
@@ -108,14 +142,18 @@ function AdminOverview() {
               <Stat value={counts.teachers} label="Teachers" />
               <Stat value={counts.students} label="Students" />
             </div>
+            {actionError && <p className={styles.errorNote}>{actionError}</p>}
+            {actionMessage && <p className={styles.successNote}>{actionMessage}</p>}
             <List
               items={users}
               emptyLabel="No users found."
               renderItem={(user) => (
-                <>
-                  <span className={styles.itemMain}>{user.display_name || user.email}</span>
-                  <span className={getRoleBadgeClass(user.role)}>{user.role || 'unknown'}</span>
-                </>
+                <UserManagementRow
+                  currentUserId={currentUser?.userId}
+                  isPending={pendingUserId === user.user_id}
+                  onUpdate={updateUser}
+                  user={user}
+                />
               )}
             />
           </Panel>
@@ -137,6 +175,43 @@ function AdminOverview() {
         </>
       )}
     </>
+  )
+}
+
+function UserManagementRow({ currentUserId, isPending, onUpdate, user }) {
+  const isCurrentUser = user.user_id === currentUserId
+  const disabled = isPending || isCurrentUser
+  const label = user.display_name || user.email || 'Unknown user'
+
+  return (
+    <div className={styles.managementRow}>
+      <div className={styles.managementIdentity}>
+        <span className={styles.itemMain}>{label}</span>
+        <span className={styles.itemMeta}>{user.email}</span>
+      </div>
+      <div className={styles.managementControls}>
+        <select
+          aria-label={`Role for ${label}`}
+          className={styles.compactSelect}
+          disabled={disabled}
+          value={user.role || ROLES.STUDENT}
+          onChange={(event) => onUpdate(user, { role: event.target.value })}
+        >
+          {USER_ROLE_OPTIONS.map((role) => (
+            <option key={role} value={role}>{role}</option>
+          ))}
+        </select>
+        <label className={styles.toggleLabel}>
+          <input
+            checked={user.active === true}
+            disabled={disabled}
+            onChange={(event) => onUpdate(user, { active: event.target.checked })}
+            type="checkbox"
+          />
+          <span>Active</span>
+        </label>
+      </div>
+    </div>
   )
 }
 
