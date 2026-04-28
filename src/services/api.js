@@ -108,4 +108,84 @@ export async function getConversations(params = {}) {
   return response.data
 }
 
+export async function getCurrentUser(options = {}) {
+  const response = await api.get('/me', {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function getManagementUsers(options = {}) {
+  const response = await api.get('/management/users', {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function updateManagementUser(userId, patch, options = {}) {
+  const response = await api.patch(`/management/users/${userId}`, patch, {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function getManagementClassrooms(options = {}) {
+  const response = await api.get('/management/classrooms', {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function createManagementClassroom(payload, options = {}) {
+  const response = await api.post('/management/classrooms', payload, {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function updateManagementClassroom(classroomId, patch, options = {}) {
+  const response = await api.patch(`/management/classrooms/${classroomId}`, patch, {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function upsertClassroomMember(classroomId, payload, options = {}) {
+  const response = await api.put(`/management/classrooms/${classroomId}/members`, payload, {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function removeClassroomMember(classroomId, userId, options = {}) {
+  const response = await api.delete(`/management/classrooms/${classroomId}/members/${userId}`, {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function getTeacherClassrooms(options = {}) {
+  const response = await api.get('/teacher/classrooms', {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
+export async function getTeacherClassroomStudents(classroomId, options = {}) {
+  const response = await api.get(`/teacher/classrooms/${classroomId}/students`, {
+    adapter: options.adapter,
+    signal: options.signal,
+  })
+  return response.data
+}
+
 export default api
