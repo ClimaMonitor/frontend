@@ -1,286 +1,345 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth.js'
 import { ROLES } from '../../data/rolePermissions.js'
+import {
+  getManagementClassrooms,
+  getManagementUsers,
+  getTeacherClassroomStudents,
+  getTeacherClassrooms,
+} from '../../services/api.js'
 import styles from './RoleDemoUI.module.css'
 
 export function RoleDemoUI() {
-  const { primaryRole: currentRole } = useAuth()
-  const isTeacher = currentRole === ROLES.TEACHER || currentRole === ROLES.ADMIN
-  const isAdmin = currentRole === ROLES.ADMIN
+  const { currentUser, isAdmin, isTeacher, primaryRole } = useAuth()
 
-  if (!currentRole) {
+  if (!primaryRole) {
     return (
       <div className={styles.container}>
-        <section className={styles.section}>
-          <h3 className={styles.sectionHeader}>
-            <InfoIcon />
-            Role-based access
-          </h3>
-          <div className={styles.sectionContent}>
-            <p className={styles.infoNote}>
-              Sign in with a seeded account to see the student, teacher, or admin interface. Anonymous dev mode keeps the chat accessible but hides role-scoped panels.
-            </p>
-          </div>
-        </section>
+        <Panel title="Role-based access" icon={<InfoIcon />}>
+          <p className={styles.infoNote}>
+            Sign in with a seeded account to load your ClimaMonitor role and classroom access.
+          </p>
+        </Panel>
       </div>
     )
   }
 
   return (
     <div className={styles.container}>
-      <ConversationHistory role={currentRole} />
-      {isTeacher && <DashboardPanel isAdmin={isAdmin} />}
-      {isTeacher && <StudentManagement />}
-      {isTeacher && <CurriculumViewer />}
-      {isAdmin && <ClassroomManagement />}
-      {isAdmin && <UserManagement />}
+      <ProfilePanel currentUser={currentUser} primaryRole={primaryRole} />
+      {isAdmin && <AdminOverview />}
+      {isTeacher && !isAdmin && <TeacherOverview />}
+      {primaryRole === ROLES.STUDENT && <StudentOverview currentUser={currentUser} />}
     </div>
   )
 }
 
-function ConversationHistory({ role }) {
-  const isTeacher = role === ROLES.TEACHER || role === ROLES.ADMIN
-  const isAdmin = role === ROLES.ADMIN
-
-  const conversations = [
-    { title: 'Global warming causes', date: 'Mar 2' },
-    { title: 'Water cycle question', date: 'Mar 1' },
-    { title: 'Carbon footprint', date: 'Feb 28' },
-  ]
-
+function ProfilePanel({ currentUser, primaryRole }) {
   return (
-    <section className={styles.section}>
-      <h3 className={styles.sectionHeader}>
-        <HistoryIcon />
-        Conversations
-      </h3>
-      <div className={styles.sectionContent}>
-        {!isTeacher && (
-          <p className={styles.infoNote}>
-            Students can review only their own conversation history.
-          </p>
-        )}
-        {isAdmin && (
-          <select className={styles.mockSelect} disabled>
-            <option>All Classrooms</option>
-            <option>Class 7B</option>
-            <option>Class 8A</option>
-          </select>
-        )}
-        {isTeacher && (
-          <select className={styles.mockSelect} disabled>
-            <option>All Students</option>
-            <option>Student 1</option>
-            <option>Student 2</option>
-          </select>
-        )}
-        <ul className={styles.mockList}>
-          {conversations.map((conv, i) => (
-            <li key={i} className={styles.mockListItem}>
-              <span className={styles.mockListTitle}>{conv.title}</span>
-              <span className={styles.mockListMeta}>{conv.date}</span>
-            </li>
-          ))}
-        </ul>
+    <Panel title="Profile" icon={<UserIcon />}>
+      <div className={styles.detailGrid}>
+        <Detail label="Role" value={primaryRole} />
+        <Detail label="Name" value={currentUser?.displayName || 'Unknown'} />
+        <Detail label="Email" value={currentUser?.email || 'Unknown'} />
+        <Detail label="Classrooms" value={String(currentUser?.classroomIds?.length || 0)} />
       </div>
-    </section>
+    </Panel>
   )
 }
 
-function DashboardPanel({ isAdmin }) {
-  return (
-    <section className={styles.section}>
-      <h3 className={styles.sectionHeader}>
-        <DashboardIcon />
-        Dashboard
-      </h3>
-      <div className={styles.sectionContent}>
-        <div className={styles.statCards}>
-          <div className={styles.statCard}>
-            <span className={styles.statNumber}>24</span>
-            <span className={styles.statLabel}>Questions</span>
-          </div>
-          <div className={styles.statCard}>
-            <span className={styles.statNumber}>18</span>
-            <span className={styles.statLabel}>Students</span>
-          </div>
-        </div>
+function AdminOverview() {
+  const [users, setUsers] = useState([])
+  const [classrooms, setClassrooms] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-        {isAdmin && (
-          <label className={styles.mockCheckboxLabel}>
-            <input type="checkbox" disabled />
-            <span>Show system-wide stats</span>
-          </label>
+  const load = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const [usersResponse, classroomsResponse] = await Promise.all([
+        getManagementUsers(),
+        getManagementClassrooms(),
+      ])
+      setUsers(usersResponse.users || [])
+      setClassrooms(classroomsResponse.classrooms || [])
+    } catch (loadError) {
+      setError(loadError.message || 'Unable to load management data.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const counts = useMemo(() => ({
+    admins: users.filter((user) => user.role === ROLES.ADMIN).length,
+    teachers: users.filter((user) => user.role === ROLES.TEACHER).length,
+    students: users.filter((user) => user.role === ROLES.STUDENT).length,
+  }), [users])
+
+  return (
+    <>
+      <Panel
+        title="Management"
+        icon={<DashboardIcon />}
+        action={<RefreshButton onClick={load} disabled={isLoading} />}
+      >
+        {isLoading ? (
+          <p className={styles.infoNote}>Loading management data...</p>
+        ) : error ? (
+          <p className={styles.errorNote}>{error}</p>
+        ) : (
+          <div className={styles.statCards}>
+            <Stat value={users.length} label="Users" />
+            <Stat value={classrooms.length} label="Classrooms" />
+          </div>
         )}
+      </Panel>
 
-        <div className={styles.topTopics}>
-          <span className={styles.topTopicsLabel}>Top Topics:</span>
-          <ul className={styles.mockListCompact}>
-            <li>Greenhouse gases (12)</li>
-            <li>Water cycle (8)</li>
-            <li>Carbon cycle (5)</li>
-          </ul>
-        </div>
-
-        <select className={styles.mockSelect} disabled>
-          <option>Export Report...</option>
-          <option>Export as CSV</option>
-          <option>Export as PDF</option>
-        </select>
-      </div>
-    </section>
-  )
-}
-
-function StudentManagement() {
-  const students = [
-    { name: 'Student 1', code: 'ABC123', status: 'active' },
-    { name: 'Student 2', code: 'DEF456', status: 'active' },
-    { name: 'Student 3', code: null, status: 'revoked' },
-  ]
-
-  return (
-    <section className={styles.section}>
-      <h3 className={styles.sectionHeader}>
-        <UsersIcon />
-        Students
-      </h3>
-      <div className={styles.sectionContent}>
-        <ul className={styles.mockList}>
-          {students.map((student, i) => (
-            <li key={i} className={styles.mockListItem}>
-              <span className={styles.mockListTitle}>{student.name}</span>
-              {student.status === 'active' ? (
-                <span className={styles.codeBadge}>{student.code}</span>
-              ) : (
-                <span className={styles.revokedBadge}>Revoked</span>
+      {!isLoading && !error && (
+        <>
+          <Panel title="Users" icon={<UsersIcon />}>
+            <div className={styles.statCards}>
+              <Stat value={counts.admins} label="Admins" />
+              <Stat value={counts.teachers} label="Teachers" />
+              <Stat value={counts.students} label="Students" />
+            </div>
+            <List
+              items={users}
+              emptyLabel="No users found."
+              renderItem={(user) => (
+                <>
+                  <span className={styles.itemMain}>{user.display_name || user.email}</span>
+                  <span className={getRoleBadgeClass(user.role)}>{user.role || 'unknown'}</span>
+                </>
               )}
-            </li>
-          ))}
-        </ul>
-        <div className={styles.buttonGroup}>
-          <button className={styles.mockButton} disabled>
-            + Generate New Code
-          </button>
-          <select className={styles.mockSelect} disabled>
-            <option>Revoke Code...</option>
-            <option>Student 1</option>
-            <option>Student 2</option>
-          </select>
-        </div>
-      </div>
-    </section>
+            />
+          </Panel>
+
+          <Panel title="Classrooms" icon={<SchoolIcon />}>
+            <List
+              items={classrooms}
+              emptyLabel="No classrooms found."
+              renderItem={(classroom) => (
+                <>
+                  <span className={styles.itemMain}>{classroom.name}</span>
+                  <span className={styles.itemMeta}>
+                    {classroom.teacher_count}T / {classroom.student_count}S
+                  </span>
+                </>
+              )}
+            />
+          </Panel>
+        </>
+      )}
+    </>
   )
 }
 
-function CurriculumViewer() {
-  const documents = [
-    { name: 'Climate_Basics.pdf', status: 'indexed' },
-    { name: 'Water_Cycle.pdf', status: 'indexed' },
-    { name: 'Carbon_Unit.docx', status: 'processing' },
-  ]
+function TeacherOverview() {
+  const [classrooms, setClassrooms] = useState([])
+  const [selectedClassroomId, setSelectedClassroomId] = useState('')
+  const [students, setStudents] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isStudentsLoading, setIsStudentsLoading] = useState(false)
+  const [error, setError] = useState(null)
 
+  const loadClassrooms = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await getTeacherClassrooms()
+      const nextClassrooms = response.classrooms || []
+      setClassrooms(nextClassrooms)
+      setSelectedClassroomId((currentId) => (
+        nextClassrooms.some((classroom) => classroom.classroom_id === currentId)
+          ? currentId
+          : nextClassrooms[0]?.classroom_id || ''
+      ))
+    } catch (loadError) {
+      setError(loadError.message || 'Unable to load teacher classrooms.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadClassrooms()
+  }, [loadClassrooms])
+
+  useEffect(() => {
+    if (!selectedClassroomId) {
+      setStudents([])
+      return
+    }
+
+    let isMounted = true
+    setIsStudentsLoading(true)
+
+    getTeacherClassroomStudents(selectedClassroomId)
+      .then((response) => {
+        if (!isMounted) return
+        setStudents(response.students || [])
+      })
+      .catch((loadError) => {
+        if (!isMounted) return
+        setError(loadError.message || 'Unable to load classroom students.')
+      })
+      .finally(() => {
+        if (!isMounted) return
+        setIsStudentsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedClassroomId])
+
+  return (
+    <>
+      <Panel
+        title="Classrooms"
+        icon={<SchoolIcon />}
+        action={<RefreshButton onClick={loadClassrooms} disabled={isLoading} />}
+      >
+        {isLoading ? (
+          <p className={styles.infoNote}>Loading classrooms...</p>
+        ) : error ? (
+          <p className={styles.errorNote}>{error}</p>
+        ) : classrooms.length ? (
+          <>
+            <select
+              className={styles.select}
+              value={selectedClassroomId}
+              onChange={(event) => setSelectedClassroomId(event.target.value)}
+            >
+              {classrooms.map((classroom) => (
+                <option key={classroom.classroom_id} value={classroom.classroom_id}>
+                  {classroom.name}
+                </option>
+              ))}
+            </select>
+            <List
+              items={classrooms}
+              emptyLabel="No classrooms found."
+              renderItem={(classroom) => (
+                <>
+                  <span className={styles.itemMain}>{classroom.name}</span>
+                  <span className={styles.itemMeta}>{classroom.student_count} students</span>
+                </>
+              )}
+            />
+          </>
+        ) : (
+          <p className={styles.infoNote}>No active classroom memberships found.</p>
+        )}
+      </Panel>
+
+      <Panel title="Students" icon={<UsersIcon />}>
+        {isStudentsLoading ? (
+          <p className={styles.infoNote}>Loading students...</p>
+        ) : (
+          <List
+            items={students}
+            emptyLabel="No students found for this classroom."
+            renderItem={(student) => (
+              <>
+                <span className={styles.itemMain}>{student.display_name || student.email}</span>
+                <span className={styles.itemMeta}>{student.active ? 'active' : 'inactive'}</span>
+              </>
+            )}
+          />
+        )}
+      </Panel>
+    </>
+  )
+}
+
+function StudentOverview({ currentUser }) {
+  return (
+    <Panel title="Student Access" icon={<InfoIcon />}>
+      <p className={styles.infoNote}>
+        Your account is active in {currentUser?.classroomIds?.length || 0} {currentUser?.classroomIds?.length === 1 ? 'classroom' : 'classrooms'}.
+      </p>
+    </Panel>
+  )
+}
+
+function getRoleBadgeClass(role) {
+  return [styles.roleBadge, styles[role]].filter(Boolean).join(' ')
+}
+
+function Panel({ title, icon, action, children }) {
   return (
     <section className={styles.section}>
       <h3 className={styles.sectionHeader}>
-        <BookIcon />
-        Curriculum
+        <span className={styles.sectionTitle}>
+          {icon}
+          {title}
+        </span>
+        {action}
       </h3>
       <div className={styles.sectionContent}>
-        <ul className={styles.mockList}>
-          {documents.map((doc, i) => (
-            <li key={i} className={styles.mockListItem}>
-              <span className={styles.mockListTitle}>{doc.name}</span>
-              <span className={`${styles.statusBadge} ${styles[doc.status]}`}>
-                {doc.status}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className={styles.infoNote}>
-          <InfoIcon />
-          Curriculum managed by development team
-        </p>
+        {children}
       </div>
     </section>
   )
 }
 
-function ClassroomManagement() {
-  const classrooms = [
-    { name: 'Class 7B', teacher: 'Ms. Smith' },
-    { name: 'Class 8A', teacher: 'Mr. Jones' },
-    { name: 'Class 6C', teacher: null },
-  ]
-
+function Detail({ label, value }) {
   return (
-    <section className={styles.section}>
-      <h3 className={styles.sectionHeader}>
-        <SchoolIcon />
-        Classrooms
-      </h3>
-      <div className={styles.sectionContent}>
-        <ul className={styles.mockList}>
-          {classrooms.map((classroom, i) => (
-            <li key={i} className={styles.mockListItem}>
-              <span className={styles.mockListTitle}>{classroom.name}</span>
-              <span className={styles.mockListMeta}>
-                {classroom.teacher || '(unassigned)'}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className={styles.buttonGroup}>
-          <button className={styles.mockButton} disabled>
-            + Create Classroom
-          </button>
-          <select className={styles.mockSelect} disabled>
-            <option>Assign Teacher...</option>
-            <option>Ms. Smith</option>
-            <option>Mr. Jones</option>
-          </select>
-        </div>
-      </div>
-    </section>
+    <div className={styles.detailItem}>
+      <span className={styles.detailLabel}>{label}</span>
+      <span className={styles.detailValue}>{value || 'None'}</span>
+    </div>
   )
 }
 
-function UserManagement() {
-  const teachers = [
-    { name: 'Ms. Smith', email: 'smith@school.cz' },
-    { name: 'Mr. Jones', email: 'jones@school.cz' },
-  ]
+function List({ items, emptyLabel, renderItem }) {
+  if (!items.length) {
+    return <p className={styles.infoNote}>{emptyLabel}</p>
+  }
 
   return (
-    <section className={styles.section}>
-      <h3 className={styles.sectionHeader}>
-        <UserIcon />
-        Teachers
-      </h3>
-      <div className={styles.sectionContent}>
-        <ul className={styles.mockList}>
-          {teachers.map((teacher, i) => (
-            <li key={i} className={styles.mockListItem}>
-              <span className={styles.mockListTitle}>{teacher.name}</span>
-              <button className={styles.mockButtonSmall} disabled>
-                Reset Password
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button className={styles.mockButton} disabled>
-          + Create Teacher Account
-        </button>
-      </div>
-    </section>
+    <ul className={styles.list}>
+      {items.map((item) => (
+        <li key={item.user_id || item.classroom_id} className={styles.listItem}>
+          {renderItem(item)}
+        </li>
+      ))}
+    </ul>
   )
 }
 
-// Icons
-function HistoryIcon() {
+function Stat({ value, label }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
+    <div className={styles.statCard}>
+      <span className={styles.statNumber}>{value}</span>
+      <span className={styles.statLabel}>{label}</span>
+    </div>
+  )
+}
+
+function RefreshButton({ onClick, disabled }) {
+  return (
+    <button type="button" className={styles.iconButton} onClick={onClick} disabled={disabled} aria-label="Refresh">
+      <RefreshIcon />
+    </button>
+  )
+}
+
+function RefreshIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
+      <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" />
     </svg>
   )
 }
@@ -303,15 +362,6 @@ function UsersIcon() {
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
-function BookIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
   )
 }
