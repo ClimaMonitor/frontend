@@ -170,6 +170,31 @@
   gap: var(--space-xs);
 }
 
+.createForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.textInput {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.textInput:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
 .roleBadge {
   flex-shrink: 0;
   padding: 2px var(--space-xs);
@@ -249,6 +274,9 @@
 
 .select:focus-visible,
 .compactSelect:focus-visible,
+.textInput:focus-visible,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
 .iconButton:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -273,6 +301,43 @@
 }
 
 .iconButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primaryButton,
+.secondaryButton {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.primaryButton {
+  color: white;
+  background-color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.secondaryButton {
+  color: var(--color-primary);
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+}
+
+.primaryButton:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

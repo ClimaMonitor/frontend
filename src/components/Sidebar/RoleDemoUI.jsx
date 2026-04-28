@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth.js'
 import { ROLES } from '../../data/rolePermissions.js'
 import {
+  createManagementClassroom,
   getManagementClassrooms,
   getManagementUsers,
   getTeacherClassroomStudents,
   getTeacherClassrooms,
   updateManagementUser,
+  updateManagementClassroom,
 } from '../../services/api.js'
 import styles from './RoleDemoUI.module.css'
 
@@ -55,15 +57,20 @@ function AdminOverview({ currentUser }) {
   const [classrooms, setClassrooms] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [pendingUserId, setPendingUserId] = useState(null)
+  const [pendingClassroomId, setPendingClassroomId] = useState(null)
   const [error, setError] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [actionMessage, setActionMessage] = useState(null)
+  const [classroomError, setClassroomError] = useState(null)
+  const [classroomMessage, setClassroomMessage] = useState(null)
 
   const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     setActionError(null)
     setActionMessage(null)
+    setClassroomError(null)
+    setClassroomMessage(null)
 
     try {
       const [usersResponse, classroomsResponse] = await Promise.all([
@@ -108,6 +115,50 @@ function AdminOverview({ currentUser }) {
       setPendingUserId(null)
     }
   }, [currentUser?.userId])
+
+  const createClassroom = useCallback(async (name) => {
+    setPendingClassroomId('new')
+    setClassroomError(null)
+    setClassroomMessage(null)
+
+    try {
+      const response = await createManagementClassroom({ name })
+      const classroom = response.classroom
+
+      setClassrooms((currentClassrooms) => [...currentClassrooms, classroom].sort(compareClassrooms))
+      setClassroomMessage(`${classroom.name} created.`)
+      return true
+    } catch (createError) {
+      setClassroomError(createError.message || 'Unable to create classroom.')
+      return false
+    } finally {
+      setPendingClassroomId(null)
+    }
+  }, [])
+
+  const updateClassroom = useCallback(async (classroom, patch) => {
+    setPendingClassroomId(classroom.classroom_id)
+    setClassroomError(null)
+    setClassroomMessage(null)
+
+    try {
+      const response = await updateManagementClassroom(classroom.classroom_id, patch)
+      const updatedClassroom = response.classroom
+
+      setClassrooms((currentClassrooms) => currentClassrooms
+        .map((current) => (
+          current.classroom_id === updatedClassroom.classroom_id ? updatedClassroom : current
+        ))
+        .sort(compareClassrooms))
+      setClassroomMessage(`${updatedClassroom.name} updated.`)
+      return true
+    } catch (updateError) {
+      setClassroomError(updateError.message || 'Unable to update classroom.')
+      return false
+    } finally {
+      setPendingClassroomId(null)
+    }
+  }, [])
 
   const counts = useMemo(() => ({
     admins: users.filter((user) => user.role === ROLES.ADMIN).length,
@@ -159,16 +210,21 @@ function AdminOverview({ currentUser }) {
           </Panel>
 
           <Panel title="Classrooms" icon={<SchoolIcon />}>
+            <CreateClassroomForm
+              disabled={pendingClassroomId === 'new'}
+              onCreate={createClassroom}
+            />
+            {classroomError && <p className={styles.errorNote}>{classroomError}</p>}
+            {classroomMessage && <p className={styles.successNote}>{classroomMessage}</p>}
             <List
               items={classrooms}
               emptyLabel="No classrooms found."
               renderItem={(classroom) => (
-                <>
-                  <span className={styles.itemMain}>{classroom.name}</span>
-                  <span className={styles.itemMeta}>
-                    {classroom.teacher_count}T / {classroom.student_count}S
-                  </span>
-                </>
+                <ClassroomManagementRow
+                  classroom={classroom}
+                  isPending={pendingClassroomId === classroom.classroom_id}
+                  onUpdate={updateClassroom}
+                />
               )}
             />
           </Panel>
@@ -176,6 +232,10 @@ function AdminOverview({ currentUser }) {
       )}
     </>
   )
+}
+
+function compareClassrooms(a, b) {
+  return (a.name || '').localeCompare(b.name || '')
 }
 
 function UserManagementRow({ currentUserId, isPending, onUpdate, user }) {
@@ -212,6 +272,96 @@ function UserManagementRow({ currentUserId, isPending, onUpdate, user }) {
         </label>
       </div>
     </div>
+  )
+}
+
+function CreateClassroomForm({ disabled, onCreate }) {
+  const [name, setName] = useState('')
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    const trimmedName = name.trim()
+    if (!trimmedName) return
+
+    const didCreate = await onCreate(trimmedName)
+    if (didCreate) {
+      setName('')
+    }
+  }
+
+  return (
+    <form className={styles.createForm} onSubmit={handleSubmit}>
+      <input
+        aria-label="New classroom name"
+        className={styles.textInput}
+        disabled={disabled}
+        onChange={(event) => setName(event.target.value)}
+        placeholder="New classroom"
+        type="text"
+        value={name}
+      />
+      <button
+        className={styles.primaryButton}
+        disabled={disabled || !name.trim()}
+        type="submit"
+      >
+        Add
+      </button>
+    </form>
+  )
+}
+
+function ClassroomManagementRow({ classroom, isPending, onUpdate }) {
+  const [name, setName] = useState(classroom.name || '')
+
+  useEffect(() => {
+    setName(classroom.name || '')
+  }, [classroom.name])
+
+  const trimmedName = name.trim()
+  const hasNameChange = trimmedName && trimmedName !== classroom.name
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    if (!hasNameChange) return
+
+    await onUpdate(classroom, { name: trimmedName })
+  }
+
+  return (
+    <form className={styles.managementRow} onSubmit={handleSubmit}>
+      <div className={styles.managementIdentity}>
+        <input
+          aria-label={`Name for ${classroom.name}`}
+          className={styles.textInput}
+          disabled={isPending}
+          onChange={(event) => setName(event.target.value)}
+          type="text"
+          value={name}
+        />
+        <span className={styles.itemMeta}>
+          {classroom.teacher_count} teachers / {classroom.student_count} students
+        </span>
+      </div>
+      <div className={styles.managementControls}>
+        <label className={styles.toggleLabel}>
+          <input
+            checked={classroom.active === true}
+            disabled={isPending}
+            onChange={(event) => onUpdate(classroom, { active: event.target.checked })}
+            type="checkbox"
+          />
+          <span>Active</span>
+        </label>
+        <button
+          className={styles.secondaryButton}
+          disabled={isPending || !hasNameChange}
+          type="submit"
+        >
+          Save
+        </button>
+      </div>
+    </form>
   )
 }
 
