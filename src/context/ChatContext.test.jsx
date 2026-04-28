@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from './ChatContext.jsx'
 import { useChat } from '../hooks/useChat.js'
 
@@ -8,6 +8,11 @@ const sendMessageMock = vi.fn()
 vi.mock('../services/api.js', () => ({
   sendMessage: (...args) => sendMessageMock(...args),
 }))
+
+afterEach(() => {
+  cleanup()
+  sendMessageMock.mockReset()
+})
 
 function TestHarness() {
   const { messages, isLoading, sendMessage, clearConversation } = useChat()
@@ -58,5 +63,39 @@ describe('ChatContext', () => {
 
     expect(screen.getByTestId('message-count')).toHaveTextContent('0')
     expect(screen.queryByText('Late response')).not.toBeInTheDocument()
+  })
+
+  it('reports guest prompt metadata from successful responses', async () => {
+    const onGuestSessionUpdate = vi.fn()
+    sendMessageMock.mockResolvedValueOnce({
+      message_id: 'assistant_1',
+      response: 'Climate answer',
+      conversation_id: 'conv_1',
+      created_at: new Date().toISOString(),
+      sources: [],
+      guest: {
+        prompt_count: 1,
+        max_prompts: 5,
+        prompts_remaining: 4,
+      },
+    })
+
+    render(
+      <ChatProvider onGuestSessionUpdate={onGuestSessionUpdate}>
+        <TestHarness />
+      </ChatProvider>,
+    )
+
+    fireEvent.click(screen.getByText('send'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Climate answer')).toBeInTheDocument()
+    })
+
+    expect(onGuestSessionUpdate).toHaveBeenCalledWith({
+      prompt_count: 1,
+      max_prompts: 5,
+      prompts_remaining: 4,
+    })
   })
 })

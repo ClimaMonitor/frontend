@@ -16,6 +16,10 @@ export function setAccessTokenProvider(provider) {
 }
 
 api.interceptors.request.use(async (config) => {
+  if (config.skipAuth) {
+    return config
+  }
+
   if (!accessTokenProvider) {
     return config
   }
@@ -89,6 +93,15 @@ export async function sendMessage(message, conversationId = null, options = {}) 
   const response = await api.post('/chat/completions', payload, {
     adapter: options.adapter,
     signal: options.signal,
+  })
+  return response.data
+}
+
+export async function createGuestSession(options = {}) {
+  const response = await api.post('/guest/sessions', null, {
+    adapter: options.adapter,
+    signal: options.signal,
+    skipAuth: true,
   })
   return response.data
 }

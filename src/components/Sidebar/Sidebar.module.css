@@ -80,6 +80,32 @@
   transition: all var(--transition-fast);
 }
 
+.guestActions {
+  display: grid;
+  gap: var(--space-xs);
+  margin: var(--space-sm) var(--space-md);
+  margin-bottom: 0;
+}
+
+.guestActions .signOutButton {
+  margin: 0;
+}
+
+.secondaryActionButton {
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-fast);
+}
+
+.secondaryActionButton:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
 .signOutButton:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
@@ -139,6 +165,11 @@
   }
 
   .signOutButton {
+    margin: var(--space-sm);
+    margin-bottom: 0;
+  }
+
+  .guestActions {
     margin: var(--space-sm);
     margin-bottom: 0;
   }

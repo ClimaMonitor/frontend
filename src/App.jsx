@@ -25,11 +25,26 @@ function App() {
 }
 
 function AppShell() {
-  const { canContinueWithoutAuth, getAccessToken, isAuthenticated, isLoading } = useAuth()
+  const {
+    canContinueWithoutAuth,
+    getAccessToken,
+    guestSession,
+    isAuthenticated,
+    isGuestMode,
+    isLoading,
+    updateGuestSession,
+  } = useAuth()
   const [isAnonymousMode, setIsAnonymousMode] = useState(false)
 
   useEffect(() => {
     setAccessTokenProvider(async () => {
+      if (isGuestMode && guestSession?.token) {
+        return {
+          token: guestSession.token,
+          allowAnonymousRequest: false,
+        }
+      }
+
       if (isAnonymousMode && isLocalApiTarget) {
         return {
           token: null,
@@ -51,7 +66,7 @@ function AppShell() {
     })
 
     return () => setAccessTokenProvider(null)
-  }, [getAccessToken, isAnonymousMode, isAuthenticated])
+  }, [getAccessToken, guestSession?.token, isAnonymousMode, isAuthenticated, isGuestMode])
 
   useEffect(() => {
     if (isAuthenticated && isAnonymousMode) {
@@ -63,7 +78,7 @@ function AppShell() {
     return <div className={styles.loadingScreen}>Loading authentication...</div>
   }
 
-  if (!isAuthenticated && !isAnonymousMode) {
+  if (!isAuthenticated && !isAnonymousMode && !isGuestMode) {
     return (
       <LoginPage
         onContinueWithoutAuth={canContinueWithoutAuth ? () => setIsAnonymousMode(true) : undefined}
@@ -73,18 +88,21 @@ function AppShell() {
 
   return (
     <SidebarProvider>
-      <ChatProvider allowAnonymousRequests={isAnonymousMode && isLocalApiTarget}>
+      <ChatProvider
+        allowAnonymousRequests={isAnonymousMode && isLocalApiTarget}
+        onGuestSessionUpdate={isGuestMode ? updateGuestSession : undefined}
+      >
         <div className={styles.app}>
-          <Header isAnonymousMode={isAnonymousMode} />
+          <Header isAnonymousMode={isAnonymousMode} isGuestMode={isGuestMode} />
           <Sidebar isAnonymousMode={isAnonymousMode} />
-          <MainContent isAnonymousMode={isAnonymousMode} />
+          <MainContent isAnonymousMode={isAnonymousMode} isGuestMode={isGuestMode} />
         </div>
       </ChatProvider>
     </SidebarProvider>
   )
 }
 
-function MainContent({ isAnonymousMode }) {
+function MainContent({ isAnonymousMode, isGuestMode }) {
   const { isOpen, width } = useSidebar()
 
   return (
@@ -92,12 +110,12 @@ function MainContent({ isAnonymousMode }) {
       className={`${styles.main} ${isOpen ? styles.mainSidebarOpen : ''}`}
       style={isOpen ? { marginLeft: `${width}px` } : undefined}
     >
-      <ChatWindow isAnonymousMode={isAnonymousMode} />
+      <ChatWindow isAnonymousMode={isAnonymousMode} isGuestMode={isGuestMode} />
     </main>
   )
 }
 
-function Header({ isAnonymousMode }) {
+function Header({ isAnonymousMode, isGuestMode }) {
   const { clearConversation, hasMessages } = useChat()
   const { toggle, isOpen } = useSidebar()
   const { isAuthenticated, primaryRole } = useAuth()
@@ -126,6 +144,8 @@ function Header({ isAnonymousMode }) {
       <div className={styles.headerCenter}>
         {isAuthenticated ? (
           <span className={styles.roleBadge}>{primaryRole || 'signed-in user'}</span>
+        ) : isGuestMode ? (
+          <span className={styles.guestBadge}>guest mode</span>
         ) : isAnonymousMode ? (
           <span className={styles.anonymousBadge}>
             {isLocalApiTarget ? 'anonymous local dev mode' : 'anonymous mode unavailable on azure api'}

@@ -27,7 +27,32 @@ const TEACHER_TABS = [
 ]
 
 export function RoleDemoUI() {
-  const { currentUser, isAdmin, isTeacher, primaryRole } = useAuth()
+  const {
+    currentUser,
+    guestPromptsRemaining,
+    isAdmin,
+    isGuestMode,
+    isTeacher,
+    login,
+    primaryRole,
+  } = useAuth()
+
+  if (isGuestMode) {
+    return (
+      <Workspace>
+        <EmptyState
+          icon={<InfoIcon />}
+          title="You are in guest mode"
+          message={`${guestPromptsRemaining ?? 5} sample prompts remaining. Sign in to unlock saved history and role-based tools.`}
+          action={(
+            <button type="button" className={styles.primaryAction} onClick={login}>
+              Sign in
+            </button>
+          )}
+        />
+      </Workspace>
+    )
+  }
 
   if (!primaryRole) {
     return (
@@ -944,12 +969,13 @@ function Notice({ notice }) {
   )
 }
 
-function EmptyState({ icon, message, title, tone = 'neutral' }) {
+function EmptyState({ action = null, icon, message, title, tone = 'neutral' }) {
   return (
     <div className={`${styles.emptyState} ${tone === 'error' ? styles.emptyStateError : ''}`}>
       <span className={styles.emptyIcon}>{icon}</span>
       <strong>{title}</strong>
       <p>{message}</p>
+      {action && <div className={styles.emptyAction}>{action}</div>}
     </div>
   )
 }

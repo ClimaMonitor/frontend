@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import api, {
+  createGuestSession,
   createManagementClassroom,
   getCurrentUser,
   getManagementClassrooms,
@@ -84,6 +85,60 @@ describe('api auth and payload handling', () => {
 
     expect(response.requestBody).toEqual({
       message: 'Hello climate',
+    })
+  })
+
+  it('starts guest sessions without requiring an existing auth token', async () => {
+    const adapter = createAdapter(async (config) => ({
+      data: {
+        url: config.url,
+        method: config.method,
+        authorization: config.headers.Authorization || null,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }))
+
+    setAccessTokenProvider(async () => ({
+      token: null,
+      allowAnonymousRequest: false,
+    }))
+
+    await expect(createGuestSession({ adapter })).resolves.toEqual({
+      url: '/guest/sessions',
+      method: 'post',
+      authorization: null,
+    })
+  })
+
+  it('sends guest chat with the guest bearer token and no spoofed identity fields', async () => {
+    const adapter = createAdapter(async (config) => ({
+      data: {
+        authorization: config.headers.Authorization,
+        requestBody: JSON.parse(config.data),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }))
+
+    setAccessTokenProvider(async () => ({
+      token: 'cm_guest_token',
+      allowAnonymousRequest: false,
+    }))
+
+    const response = await sendMessage('Hello climate', null, {
+      adapter,
+    })
+
+    expect(response).toEqual({
+      authorization: 'Bearer cm_guest_token',
+      requestBody: {
+        message: 'Hello climate',
+      },
     })
   })
 

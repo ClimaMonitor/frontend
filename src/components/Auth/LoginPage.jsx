@@ -7,8 +7,10 @@ export function LoginPage({ onContinueWithoutAuth }) {
     isAuthConfigured,
     isLocalApiTarget,
     isLoading,
+    isGuestSessionLoading,
     login,
     authError,
+    startGuestMode,
   } = useAuth()
 
   return (
@@ -52,6 +54,19 @@ export function LoginPage({ onContinueWithoutAuth }) {
         >
           {isLoading ? 'Opening sign-in...' : 'Sign in'}
         </button>
+
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={startGuestMode}
+          disabled={isLoading || isGuestSessionLoading}
+        >
+          {isGuestSessionLoading ? 'Starting guest mode...' : 'Try guest mode'}
+        </button>
+
+        <p className={styles.helperText}>
+          Guest mode lets you send 5 sample prompts in this browser session.
+        </p>
 
         {canContinueWithoutAuth && onContinueWithoutAuth && (
           <button

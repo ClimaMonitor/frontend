@@ -16,9 +16,10 @@ import {
   loginRequest,
 } from '../auth/msalConfig.js'
 import { ROLES } from '../data/rolePermissions.js'
-import { getCurrentUser } from '../services/api.js'
+import { createGuestSession, getCurrentUser } from '../services/api.js'
 
 const AuthContext = createContext(null)
+const GUEST_SESSION_STORAGE_KEY = 'climamonitor.guestSession'
 
 function normalizeRole(role) {
   if (!role) return null
@@ -91,6 +92,37 @@ function getDbRoles(currentUser) {
   return currentUser?.role ? [currentUser.role] : []
 }
 
+function normalizeGuestSession(rawSession) {
+  if (!rawSession) return null
+
+  return {
+    guestSessionId: rawSession.guest_session_id || rawSession.guestSessionId || null,
+    token: rawSession.guest_token || rawSession.token || null,
+    promptCount: Number(rawSession.prompt_count ?? rawSession.promptCount ?? 0),
+    maxPrompts: Number(rawSession.max_prompts ?? rawSession.maxPrompts ?? 5),
+    promptsRemaining: Number(rawSession.prompts_remaining ?? rawSession.promptsRemaining ?? 0),
+    expiresAt: rawSession.expires_at || rawSession.expiresAt || null,
+  }
+}
+
+function readStoredGuestSession() {
+  try {
+    const stored = window.sessionStorage.getItem(GUEST_SESSION_STORAGE_KEY)
+    return stored ? normalizeGuestSession(JSON.parse(stored)) : null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredGuestSession(session) {
+  if (!session) {
+    window.sessionStorage.removeItem(GUEST_SESSION_STORAGE_KEY)
+    return
+  }
+
+  window.sessionStorage.setItem(GUEST_SESSION_STORAGE_KEY, JSON.stringify(session))
+}
+
 export function AuthProvider({ children }) {
   const { instance, accounts, inProgress } = useMsal()
   const isAuthenticated = useIsAuthenticated()
@@ -100,6 +132,8 @@ export function AuthProvider({ children }) {
   const [userContextError, setUserContextError] = useState(null)
   const [isUserContextLoading, setIsUserContextLoading] = useState(false)
   const [tokenError, setTokenError] = useState(null)
+  const [guestSession, setGuestSession] = useState(() => readStoredGuestSession())
+  const [isGuestSessionLoading, setIsGuestSessionLoading] = useState(false)
 
   const account = accounts[0] || null
   const tokenRoles = useMemo(() => getRoleClaims(account, accessTokenClaims), [account, accessTokenClaims])
@@ -109,6 +143,7 @@ export function AuthProvider({ children }) {
   }, [currentUser, tokenRoles])
   const primaryRole = roles[0] || null
   const canContinueWithoutAuth = authMode === 'optional' && isLocalApiTarget
+  const isGuestMode = Boolean(guestSession?.token) && !isAuthenticated
 
   const acquireToken = useCallback(async () => {
     const scope = getApiScope()
@@ -145,6 +180,13 @@ export function AuthProvider({ children }) {
 
     acquireToken().catch(() => {})
   }, [acquireToken, account, isAuthenticated])
+
+  useEffect(() => {
+    if (isAuthenticated && guestSession) {
+      writeStoredGuestSession(null)
+      setGuestSession(null)
+    }
+  }, [guestSession, isAuthenticated])
 
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
@@ -185,29 +227,74 @@ export function AuthProvider({ children }) {
     }
 
     setTokenError(null)
+    writeStoredGuestSession(null)
+    setGuestSession(null)
     await instance.loginRedirect(loginRequest)
   }, [instance])
 
   const logout = useCallback(async () => {
+    writeStoredGuestSession(null)
+    setGuestSession(null)
     await instance.logoutRedirect({
       account: account || undefined,
     })
   }, [account, instance])
 
+  const startGuestMode = useCallback(async () => {
+    setIsGuestSessionLoading(true)
+    setTokenError(null)
+
+    try {
+      const response = await createGuestSession()
+      const session = normalizeGuestSession(response.guest_session)
+      writeStoredGuestSession(session)
+      setGuestSession(session)
+    } catch (error) {
+      setTokenError(error.message || 'Unable to start guest mode.')
+    } finally {
+      setIsGuestSessionLoading(false)
+    }
+  }, [])
+
+  const updateGuestSession = useCallback((patch) => {
+    setGuestSession((currentSession) => {
+      if (!currentSession) return currentSession
+
+      const updatedSession = normalizeGuestSession({
+        ...currentSession,
+        ...patch,
+      })
+      writeStoredGuestSession(updatedSession)
+      return updatedSession
+    })
+  }, [])
+
+  const exitGuestMode = useCallback(() => {
+    writeStoredGuestSession(null)
+    setGuestSession(null)
+  }, [])
+
   const value = useMemo(() => ({
     accessToken,
     canContinueWithoutAuth,
     currentUser,
-    displayName: currentUser?.displayName || getDisplayName(account),
+    displayName: isGuestMode ? 'Guest user' : currentUser?.displayName || getDisplayName(account),
     email: currentUser?.email || account?.username || null,
     getAccessToken: acquireToken,
     authError: userContextError || tokenError,
     isAuthenticated,
     isAuthConfigured,
-    isLoading: inProgress !== InteractionStatus.None || isUserContextLoading,
+    isGuestMode,
+    guestSession,
+    guestPromptsRemaining: guestSession?.promptsRemaining ?? null,
+    isLoading: inProgress !== InteractionStatus.None || isUserContextLoading || isGuestSessionLoading,
     isUserContextLoading,
+    isGuestSessionLoading,
     login,
     logout,
+    startGuestMode,
+    updateGuestSession,
+    exitGuestMode,
     primaryRole,
     roles,
     isLocalApiTarget,
@@ -218,15 +305,21 @@ export function AuthProvider({ children }) {
     acquireToken,
     canContinueWithoutAuth,
     currentUser,
+    exitGuestMode,
+    guestSession,
     inProgress,
     isAuthenticated,
+    isGuestMode,
+    isGuestSessionLoading,
     isUserContextLoading,
     login,
     logout,
     primaryRole,
     roles,
+    startGuestMode,
     isLocalApiTarget,
     tokenError,
+    updateGuestSession,
     userContextError,
   ])
 
@@ -242,6 +335,7 @@ export function useAuthContext() {
 }
 
 export {
+  normalizeGuestSession,
   normalizeCurrentUser,
   normalizeRole,
 }

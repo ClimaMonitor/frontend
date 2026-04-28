@@ -91,7 +91,11 @@ function chatReducer(state, action) {
 const ChatContext = createContext(null)
 
 // Provider component
-export function ChatProvider({ children, allowAnonymousRequests = false }) {
+export function ChatProvider({
+  children,
+  allowAnonymousRequests = false,
+  onGuestSessionUpdate,
+}) {
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const activeRequestIdRef = useRef(0)
   const activeAbortControllerRef = useRef(null)
@@ -157,9 +161,17 @@ export function ChatProvider({ children, allowAnonymousRequests = false }) {
           timestamp: response.created_at,
         },
       })
+
+      if (response.guest && onGuestSessionUpdate) {
+        onGuestSessionUpdate(response.guest)
+      }
     } catch (error) {
       if (requestId !== activeRequestIdRef.current || error.code === 'ERR_CANCELED') {
         return
+      }
+
+      if (error.error === 'guest_prompt_limit_reached' && onGuestSessionUpdate) {
+        onGuestSessionUpdate({ prompts_remaining: 0 })
       }
 
       dispatch({
@@ -174,7 +186,7 @@ export function ChatProvider({ children, allowAnonymousRequests = false }) {
       activeAbortControllerRef.current = null
       dispatch({ type: ACTIONS.SET_LOADING, payload: false })
     }
-  }, [allowAnonymousRequests, state.conversationId, state.isLoading])
+  }, [allowAnonymousRequests, onGuestSessionUpdate, state.conversationId, state.isLoading])
 
   const clearConversation = useCallback(() => {
     activeRequestIdRef.current += 1

@@ -6,10 +6,11 @@ import { MessageBubble } from './MessageBubble.jsx'
 import { ChatInput } from './ChatInput.jsx'
 import styles from './ChatWindow.module.css'
 
-export function ChatWindow({ isAnonymousMode = false }) {
+export function ChatWindow({ isAnonymousMode = false, isGuestMode = false }) {
   const { messages, isLoading, error, sendMessage, clearError, hasMessages } = useChat()
-  const { isAuthenticated, primaryRole } = useAuth()
+  const { guestPromptsRemaining, isAuthenticated, login, primaryRole } = useAuth()
   const messagesEndRef = useRef(null)
+  const guestLimitReached = isGuestMode && guestPromptsRemaining !== null && guestPromptsRemaining <= 0
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -20,7 +21,12 @@ export function ChatWindow({ isAnonymousMode = false }) {
     <div className={styles.container}>
       <div className={styles.messageArea}>
         {!hasMessages && !isLoading && (
-          <EmptyState isAnonymousMode={isAnonymousMode} isAuthenticated={isAuthenticated} primaryRole={primaryRole} />
+          <EmptyState
+            isAnonymousMode={isAnonymousMode}
+            isAuthenticated={isAuthenticated}
+            isGuestMode={isGuestMode}
+            primaryRole={primaryRole}
+          />
         )}
 
         {messages.map((message) => (
@@ -36,12 +42,25 @@ export function ChatWindow({ isAnonymousMode = false }) {
         <div ref={messagesEndRef} />
       </div>
 
-      <ChatInput onSend={sendMessage} disabled={isLoading} />
+      {isGuestMode && (
+        <div className={styles.guestPromptStatus}>
+          <span>
+            {guestLimitReached
+              ? 'Guest prompt limit reached.'
+              : `${guestPromptsRemaining ?? 5} guest prompts remaining.`}
+          </span>
+          <button type="button" onClick={login}>
+            Sign in
+          </button>
+        </div>
+      )}
+
+      <ChatInput onSend={sendMessage} disabled={isLoading || guestLimitReached} />
     </div>
   )
 }
 
-function EmptyState({ isAnonymousMode, isAuthenticated, primaryRole }) {
+function EmptyState({ isAnonymousMode, isAuthenticated, isGuestMode, primaryRole }) {
   return (
     <div className={styles.emptyState}>
       <div className={styles.emptyIcon}>
@@ -53,6 +72,8 @@ function EmptyState({ isAnonymousMode, isAuthenticated, primaryRole }) {
       <p className={styles.emptyText}>
         {isAuthenticated
           ? `Signed in as ${primaryRole || 'a user'}. Ask about climate science and the rest of the interface will reflect your role.`
+          : isGuestMode
+            ? 'Guest mode uses the live ClimaMonitor assistant. You can send 5 sample prompts before signing in.'
           : isAnonymousMode
             ? isLocalApiTarget
               ? 'Anonymous dev mode is enabled against the local API. Authentication is bypassed locally, but role-based UI is hidden until you sign in.'

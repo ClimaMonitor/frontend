@@ -96,6 +96,7 @@
 }
 
 .roleBadge,
+.guestBadge,
 .anonymousBadge {
   display: inline-flex;
   align-items: center;
@@ -103,6 +104,11 @@
   border-radius: var(--radius-full);
   font-size: var(--font-size-sm);
   text-transform: capitalize;
+}
+
+.guestBadge {
+  background: rgba(68, 112, 163, 0.14);
+  color: #24406f;
 }
 
 .roleBadge {

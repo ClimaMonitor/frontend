@@ -24,7 +24,16 @@ function CloseIcon() {
 
 export function Sidebar({ isAnonymousMode = false }) {
   const { isOpen, width, close, setWidth } = useSidebar()
-  const { displayName, email, logout, primaryRole } = useAuth()
+  const {
+    displayName,
+    email,
+    exitGuestMode,
+    guestPromptsRemaining,
+    isGuestMode,
+    login,
+    logout,
+    primaryRole,
+  } = useAuth()
   const sidebarRef = useRef(null)
   const [isResizing, setIsResizing] = useState(false)
 
@@ -89,9 +98,13 @@ export function Sidebar({ isAnonymousMode = false }) {
       >
         <div className={styles.sidebarHeader}>
           <div>
-            <span className={styles.sidebarTitle}>{isAnonymousMode ? 'Local dev mode' : 'Signed in'}</span>
+            <span className={styles.sidebarTitle}>
+              {isGuestMode ? 'Guest mode' : isAnonymousMode ? 'Local dev mode' : 'Signed in'}
+            </span>
             <p className={styles.sidebarMeta}>
-              {isAnonymousMode
+              {isGuestMode
+                ? `${guestPromptsRemaining ?? 5} sample prompts remaining`
+                : isAnonymousMode
                 ? 'Authentication is bypassed for local testing.'
                 : `${displayName}${email ? ` · ${email}` : ''}${primaryRole ? ` · ${primaryRole}` : ''}`}
             </p>
@@ -105,7 +118,16 @@ export function Sidebar({ isAnonymousMode = false }) {
           </button>
         </div>
 
-        {!isAnonymousMode && (
+        {isGuestMode ? (
+          <div className={styles.guestActions}>
+            <button type="button" className={styles.signOutButton} onClick={login}>
+              Sign in to continue
+            </button>
+            <button type="button" className={styles.secondaryActionButton} onClick={exitGuestMode}>
+              Exit guest mode
+            </button>
+          </div>
+        ) : !isAnonymousMode && (
           <button type="button" className={styles.signOutButton} onClick={logout}>
             Sign out
           </button>

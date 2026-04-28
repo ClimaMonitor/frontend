@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeCurrentUser, normalizeRole, parseJwtClaims } from './AuthContext.jsx'
+import {
+  normalizeCurrentUser,
+  normalizeGuestSession,
+  normalizeRole,
+  parseJwtClaims,
+} from './AuthContext.jsx'
 
 function createJwt(payloadObject) {
   const json = JSON.stringify(payloadObject)
@@ -56,5 +61,23 @@ describe('auth normalization', () => {
     expect(normalizeRole('teacher')).toBe('teacher')
     expect(normalizeRole('ADMIN')).toBe('admin')
     expect(normalizeRole('owner')).toBeNull()
+  })
+
+  it('normalizes guest session metadata from the backend', () => {
+    expect(normalizeGuestSession({
+      guest_session_id: 'guest-session-id',
+      guest_token: 'guest-token',
+      prompt_count: 1,
+      max_prompts: 5,
+      prompts_remaining: 4,
+      expires_at: '2026-04-28T18:00:00.000Z',
+    })).toEqual({
+      guestSessionId: 'guest-session-id',
+      token: 'guest-token',
+      promptCount: 1,
+      maxPrompts: 5,
+      promptsRemaining: 4,
+      expiresAt: '2026-04-28T18:00:00.000Z',
+    })
   })
 })

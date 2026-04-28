@@ -7,6 +7,7 @@ export function useAuth() {
   return {
     ...auth,
     isAdmin: auth.primaryRole === ROLES.ADMIN,
+    isGuest: auth.isGuestMode,
     isStudent: auth.primaryRole === ROLES.STUDENT,
     isTeacher: auth.primaryRole === ROLES.TEACHER,
   }
