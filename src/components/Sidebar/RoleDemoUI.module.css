@@ -177,6 +177,13 @@
   gap: var(--space-xs);
 }
 
+.membershipForm {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .textInput {
   width: 100%;
   min-width: 0;
@@ -340,6 +347,10 @@
 .secondaryButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.managementRow > .secondaryButton {
+  justify-self: start;
 }
 
 .infoNote,

@@ -5,10 +5,12 @@ import {
   createManagementClassroom,
   getManagementClassrooms,
   getManagementUsers,
+  removeClassroomMember,
   getTeacherClassroomStudents,
   getTeacherClassrooms,
   updateManagementUser,
   updateManagementClassroom,
+  upsertClassroomMember,
 } from '../../services/api.js'
 import styles from './RoleDemoUI.module.css'
 
@@ -55,14 +57,27 @@ function ProfilePanel({ currentUser, primaryRole }) {
 function AdminOverview({ currentUser }) {
   const [users, setUsers] = useState([])
   const [classrooms, setClassrooms] = useState([])
+  const [selectedClassroomId, setSelectedClassroomId] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [pendingUserId, setPendingUserId] = useState(null)
   const [pendingClassroomId, setPendingClassroomId] = useState(null)
+  const [pendingMembershipKey, setPendingMembershipKey] = useState(null)
   const [error, setError] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [actionMessage, setActionMessage] = useState(null)
   const [classroomError, setClassroomError] = useState(null)
   const [classroomMessage, setClassroomMessage] = useState(null)
+  const [membershipError, setMembershipError] = useState(null)
+  const [membershipMessage, setMembershipMessage] = useState(null)
+
+  const refreshManagementData = useCallback(async () => {
+    const [usersResponse, classroomsResponse] = await Promise.all([
+      getManagementUsers(),
+      getManagementClassrooms(),
+    ])
+    setUsers(usersResponse.users || [])
+    setClassrooms(classroomsResponse.classrooms || [])
+  }, [])
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -71,24 +86,29 @@ function AdminOverview({ currentUser }) {
     setActionMessage(null)
     setClassroomError(null)
     setClassroomMessage(null)
+    setMembershipError(null)
+    setMembershipMessage(null)
 
     try {
-      const [usersResponse, classroomsResponse] = await Promise.all([
-        getManagementUsers(),
-        getManagementClassrooms(),
-      ])
-      setUsers(usersResponse.users || [])
-      setClassrooms(classroomsResponse.classrooms || [])
+      await refreshManagementData()
     } catch (loadError) {
       setError(loadError.message || 'Unable to load management data.')
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [refreshManagementData])
 
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    setSelectedClassroomId((currentId) => (
+      classrooms.some((classroom) => classroom.classroom_id === currentId)
+        ? currentId
+        : classrooms[0]?.classroom_id || ''
+    ))
+  }, [classrooms])
 
   const updateUser = useCallback(async (user, patch) => {
     if (user.user_id === currentUser?.userId) {
@@ -160,6 +180,43 @@ function AdminOverview({ currentUser }) {
     }
   }, [])
 
+  const addMembership = useCallback(async ({ classroomId, userId, membershipRole }) => {
+    setPendingMembershipKey(`add:${classroomId}`)
+    setMembershipError(null)
+    setMembershipMessage(null)
+
+    try {
+      await upsertClassroomMember(classroomId, {
+        user_id: userId,
+        membership_role: membershipRole,
+      })
+      await refreshManagementData()
+      setMembershipMessage('Membership added.')
+      return true
+    } catch (addError) {
+      setMembershipError(addError.message || 'Unable to add classroom membership.')
+      return false
+    } finally {
+      setPendingMembershipKey(null)
+    }
+  }, [refreshManagementData])
+
+  const removeMembership = useCallback(async (classroomId, user) => {
+    setPendingMembershipKey(`remove:${classroomId}:${user.user_id}`)
+    setMembershipError(null)
+    setMembershipMessage(null)
+
+    try {
+      await removeClassroomMember(classroomId, user.user_id)
+      await refreshManagementData()
+      setMembershipMessage(`${user.display_name || user.email} removed from classroom.`)
+    } catch (removeError) {
+      setMembershipError(removeError.message || 'Unable to remove classroom membership.')
+    } finally {
+      setPendingMembershipKey(null)
+    }
+  }, [refreshManagementData])
+
   const counts = useMemo(() => ({
     admins: users.filter((user) => user.role === ROLES.ADMIN).length,
     teachers: users.filter((user) => user.role === ROLES.TEACHER).length,
@@ -228,6 +285,18 @@ function AdminOverview({ currentUser }) {
               )}
             />
           </Panel>
+
+          <MembershipPanel
+            classrooms={classrooms}
+            error={membershipError}
+            message={membershipMessage}
+            onAdd={addMembership}
+            onRemove={removeMembership}
+            onSelectClassroom={setSelectedClassroomId}
+            pendingKey={pendingMembershipKey}
+            selectedClassroomId={selectedClassroomId}
+            users={users}
+          />
         </>
       )}
     </>
@@ -363,6 +432,188 @@ function ClassroomManagementRow({ classroom, isPending, onUpdate }) {
       </div>
     </form>
   )
+}
+
+function MembershipPanel({
+  classrooms,
+  error,
+  message,
+  onAdd,
+  onRemove,
+  onSelectClassroom,
+  pendingKey,
+  selectedClassroomId,
+  users,
+}) {
+  const selectedClassroom = classrooms.find((classroom) => classroom.classroom_id === selectedClassroomId)
+  const memberships = useMemo(
+    () => getActiveClassroomMemberships(users, selectedClassroomId),
+    [users, selectedClassroomId],
+  )
+
+  return (
+    <Panel title="Memberships" icon={<UsersIcon />}>
+      {classrooms.length ? (
+        <>
+          <select
+            aria-label="Classroom membership list"
+            className={styles.select}
+            onChange={(event) => onSelectClassroom(event.target.value)}
+            value={selectedClassroomId}
+          >
+            {classrooms.map((classroom) => (
+              <option key={classroom.classroom_id} value={classroom.classroom_id}>
+                {classroom.name}
+              </option>
+            ))}
+          </select>
+
+          <AddMembershipForm
+            disabled={!selectedClassroom || pendingKey?.startsWith('add:')}
+            onAdd={onAdd}
+            selectedClassroom={selectedClassroom}
+            users={users}
+          />
+
+          {error && <p className={styles.errorNote}>{error}</p>}
+          {message && <p className={styles.successNote}>{message}</p>}
+
+          <List
+            items={memberships}
+            emptyLabel="No active members in this classroom."
+            renderItem={(membership) => (
+              <MembershipRow
+                classroomId={selectedClassroomId}
+                isPending={pendingKey === `remove:${selectedClassroomId}:${membership.user.user_id}`}
+                membership={membership}
+                onRemove={onRemove}
+              />
+            )}
+          />
+        </>
+      ) : (
+        <p className={styles.infoNote}>Create a classroom before adding members.</p>
+      )}
+    </Panel>
+  )
+}
+
+function AddMembershipForm({ disabled, onAdd, selectedClassroom, users }) {
+  const [membershipRole, setMembershipRole] = useState(ROLES.STUDENT)
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const eligibleUsers = useMemo(
+    () => users.filter((user) => (
+      user.active === true &&
+      user.role === membershipRole &&
+      !hasActiveMembership(user, selectedClassroom?.classroom_id)
+    )),
+    [membershipRole, selectedClassroom?.classroom_id, users],
+  )
+
+  useEffect(() => {
+    setSelectedUserId((currentId) => (
+      eligibleUsers.some((user) => user.user_id === currentId)
+        ? currentId
+        : eligibleUsers[0]?.user_id || ''
+    ))
+  }, [eligibleUsers])
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    if (!selectedClassroom || !selectedUserId) return
+
+    await onAdd({
+      classroomId: selectedClassroom.classroom_id,
+      userId: selectedUserId,
+      membershipRole,
+    })
+  }
+
+  return (
+    <form className={styles.membershipForm} onSubmit={handleSubmit}>
+      <select
+        aria-label="Membership role"
+        className={styles.compactSelect}
+        disabled={disabled}
+        onChange={(event) => setMembershipRole(event.target.value)}
+        value={membershipRole}
+      >
+        <option value={ROLES.STUDENT}>student</option>
+        <option value={ROLES.TEACHER}>teacher</option>
+      </select>
+      <select
+        aria-label="User to add"
+        className={styles.compactSelect}
+        disabled={disabled || !eligibleUsers.length}
+        onChange={(event) => setSelectedUserId(event.target.value)}
+        value={selectedUserId}
+      >
+        {eligibleUsers.length ? (
+          eligibleUsers.map((user) => (
+            <option key={user.user_id} value={user.user_id}>
+              {user.display_name || user.email}
+            </option>
+          ))
+        ) : (
+          <option value="">No eligible users</option>
+        )}
+      </select>
+      <button
+        className={styles.primaryButton}
+        disabled={disabled || !selectedUserId}
+        type="submit"
+      >
+        Add
+      </button>
+    </form>
+  )
+}
+
+function MembershipRow({ classroomId, isPending, membership, onRemove }) {
+  const { role, user } = membership
+
+  return (
+    <div className={styles.managementRow}>
+      <div className={styles.managementIdentity}>
+        <span className={styles.itemMain}>{user.display_name || user.email}</span>
+        <span className={getRoleBadgeClass(role)}>{role}</span>
+      </div>
+      <button
+        className={styles.secondaryButton}
+        disabled={isPending}
+        onClick={() => onRemove(classroomId, user)}
+        type="button"
+      >
+        Remove
+      </button>
+    </div>
+  )
+}
+
+function getActiveClassroomMemberships(users, classroomId) {
+  if (!classroomId) return []
+
+  return users
+    .map((user) => {
+      const membership = user.classroom_memberships?.find((entry) => (
+        entry.classroom_id === classroomId && entry.active === true
+      ))
+
+      return membership ? { role: membership.role, user } : null
+    })
+    .filter(Boolean)
+    .sort((a, b) => (
+      a.role.localeCompare(b.role) ||
+      (a.user.display_name || a.user.email || '').localeCompare(b.user.display_name || b.user.email || '')
+    ))
+}
+
+function hasActiveMembership(user, classroomId) {
+  if (!classroomId) return false
+
+  return user.classroom_memberships?.some((membership) => (
+    membership.classroom_id === classroomId && membership.active === true
+  )) === true
 }
 
 function TeacherOverview() {
@@ -533,7 +784,7 @@ function List({ items, emptyLabel, renderItem }) {
   return (
     <ul className={styles.list}>
       {items.map((item) => (
-        <li key={item.user_id || item.classroom_id} className={styles.listItem}>
+        <li key={item.user_id || item.classroom_id || item.user?.user_id} className={styles.listItem}>
           {renderItem(item)}
         </li>
       ))}
