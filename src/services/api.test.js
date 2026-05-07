@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import api, {
   createGuestSession,
+  getChatHistory,
   createManagementClassroom,
   getCurrentUser,
   getManagementClassrooms,
@@ -139,6 +140,32 @@ describe('api auth and payload handling', () => {
       requestBody: {
         message: 'Hello climate',
       },
+    })
+  })
+
+  it('loads chat history with an explicit bearer token and a limit query parameter', async () => {
+    const adapter = createAdapter(async (config) => ({
+      data: {
+        url: config.url,
+        method: config.method,
+        authorization: config.headers.Authorization,
+        params: config.params,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }))
+
+    await expect(getChatHistory({
+      accessToken: 'token-123',
+      limit: 25,
+      adapter,
+    })).resolves.toEqual({
+      url: '/chat/history',
+      method: 'get',
+      authorization: 'Bearer token-123',
+      params: { limit: 25 },
     })
   })
 

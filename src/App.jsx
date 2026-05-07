@@ -26,7 +26,9 @@ function App() {
 
 function AppShell() {
   const {
+    accessToken,
     canContinueWithoutAuth,
+    currentUser,
     getAccessToken,
     guestSession,
     isAuthenticated,
@@ -90,6 +92,9 @@ function AppShell() {
     <SidebarProvider>
       <ChatProvider
         allowAnonymousRequests={isAnonymousMode && isLocalApiTarget}
+        historyAccessToken={accessToken}
+        historyStorageKey={currentUser?.userId || currentUser?.email || null}
+        loadPersistedHistory={isAuthenticated && Boolean(accessToken) && !isAnonymousMode && !isGuestMode}
         onGuestSessionUpdate={isGuestMode ? updateGuestSession : undefined}
       >
         <div className={styles.app}>
@@ -158,8 +163,8 @@ function Header({ isAnonymousMode, isGuestMode }) {
           className={styles.newChatButton}
           onClick={clearConversation}
         >
-          <PlusIcon />
-          <span>New chat</span>
+          <ClearIcon />
+          <span>Clear chat</span>
         </button>
       )}
     </header>
@@ -185,7 +190,7 @@ function MenuIcon() {
   )
 }
 
-function PlusIcon() {
+function ClearIcon() {
   return (
     <svg
       width="18"
@@ -197,8 +202,11 @@ function PlusIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M6 6l1 14h10l1-14" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
     </svg>
   )
 }

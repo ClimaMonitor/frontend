@@ -9,6 +9,7 @@ export function useChat() {
     messages,
     conversationId,
     isLoading,
+    isHistoryLoading,
     error,
     sendMessage,
     clearConversation,
@@ -20,6 +21,7 @@ export function useChat() {
     messages,
     conversationId,
     isLoading,
+    isHistoryLoading,
     error,
 
     // Actions

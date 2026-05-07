@@ -106,6 +106,20 @@ export async function createGuestSession(options = {}) {
   return response.data
 }
 
+export async function getChatHistory(options = {}) {
+  const response = await api.get('/chat/history', {
+    adapter: options.adapter,
+    headers: options.accessToken
+      ? { Authorization: `Bearer ${options.accessToken}` }
+      : undefined,
+    signal: options.signal,
+    params: {
+      limit: options.limit ?? 50,
+    },
+  })
+  return response.data
+}
+
 /**
  * Get list of conversations (for future use)
  * @param {Object} params - Query parameters

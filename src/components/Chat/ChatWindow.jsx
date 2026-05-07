@@ -7,7 +7,15 @@ import { ChatInput } from './ChatInput.jsx'
 import styles from './ChatWindow.module.css'
 
 export function ChatWindow({ isAnonymousMode = false, isGuestMode = false }) {
-  const { messages, isLoading, error, sendMessage, clearError, hasMessages } = useChat()
+  const {
+    messages,
+    isLoading,
+    isHistoryLoading,
+    error,
+    sendMessage,
+    clearError,
+    hasMessages,
+  } = useChat()
   const { guestPromptsRemaining, isAuthenticated, login, primaryRole } = useAuth()
   const messagesEndRef = useRef(null)
   const guestLimitReached = isGuestMode && guestPromptsRemaining !== null && guestPromptsRemaining <= 0
@@ -20,7 +28,9 @@ export function ChatWindow({ isAnonymousMode = false, isGuestMode = false }) {
   return (
     <div className={styles.container}>
       <div className={styles.messageArea}>
-        {!hasMessages && !isLoading && (
+        {isHistoryLoading && !hasMessages && <LoadingIndicator text="Loading chat history..." />}
+
+        {!hasMessages && !isLoading && !isHistoryLoading && (
           <EmptyState
             isAnonymousMode={isAnonymousMode}
             isAuthenticated={isAuthenticated}
@@ -33,7 +43,7 @@ export function ChatWindow({ isAnonymousMode = false, isGuestMode = false }) {
           <MessageBubble key={message.id} message={message} />
         ))}
 
-        {isLoading && <LoadingIndicator />}
+        {isLoading && <LoadingIndicator text="Thinking..." />}
 
         {error && (
           <ErrorMessage message={error} onDismiss={clearError} />
@@ -102,7 +112,7 @@ function SuggestionChip({ text }) {
   )
 }
 
-function LoadingIndicator() {
+function LoadingIndicator({ text }) {
   return (
     <div className={styles.loading}>
       <div className={styles.loadingDots}>
@@ -110,7 +120,7 @@ function LoadingIndicator() {
         <span></span>
         <span></span>
       </div>
-      <span className={styles.loadingText}>Thinking...</span>
+      <span className={styles.loadingText}>{text}</span>
     </div>
   )
 }
