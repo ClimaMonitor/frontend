@@ -120,21 +120,6 @@ export async function getChatHistory(options = {}) {
   return response.data
 }
 
-/**
- * Get list of conversations (for future use)
- * @param {Object} params - Query parameters
- * @returns {Promise<Object>} List of conversations
- */
-export async function getConversations(params = {}) {
-  const response = await api.get('/conversations', {
-    params: {
-      classroom_id: CLASSROOM_ID,
-      ...params,
-    },
-  })
-  return response.data
-}
-
 export async function getCurrentUser(options = {}) {
   const response = await api.get('/me', {
     adapter: options.adapter,

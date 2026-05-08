@@ -217,7 +217,6 @@ API functions:
 | --- | --- |
 | `sendMessage` | `POST /chat/completions` |
 | `createGuestSession` | `POST /guest/sessions` |
-| `getConversations` | `GET /conversations` |
 | `getCurrentUser` | `GET /me` |
 | `getManagementUsers` | `GET /management/users` |
 | `updateManagementUser` | `PATCH /management/users/:userId` |
@@ -333,7 +332,6 @@ MSW is initialized in development by `enableMocking()` in `src/bootstrapApp.jsx`
 
 Current mock handlers are intentionally limited:
 
-- `GET /api/v1/conversations` is mocked.
 - Chat completions are not mocked in `handlers.js`; chat calls go to the configured API target.
 
 `src/mocks/data.js` still contains older mock climate responses and helper data. This may be useful for future mock expansion, but it is not currently wired to the chat endpoint.
@@ -408,7 +406,7 @@ Before deploying, confirm that:
 ## Current Integration Notes and Risks
 
 - The frontend has a complete guest-mode UI and client flow, but it depends on `POST /guest/sessions` and guest metadata in chat responses. Confirm the deployed API supports that contract before presenting guest mode as production-ready.
-- `getConversations()` exists and MSW mocks `GET /conversations`, but there is no visible production conversation-history UI in the main chat flow yet.
+- Conversation listing is intentionally not exposed in the frontend service layer until the backend implements a production route.
 - The sidebar role workspace is functional but dense. Any changes to management API response shapes should be reflected in `RoleDemoUI.jsx` and its tests.
 - The frontend repository has its own `.git` directory and was clean at the time this documentation was written.
 - Root-level project docs and adjacent API/backend code provide useful context, but this frontend should remain decoupled from backend internals except for the HTTP contracts in `src/services/api.js`.
