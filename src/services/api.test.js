@@ -8,6 +8,7 @@ import api, {
   getManagementUsers,
   getTeacherClassroomStudents,
   getTeacherClassrooms,
+  getTeacherStudentChatHistory,
   removeClassroomMember,
   sendMessage,
   setAccessTokenProvider,
@@ -278,10 +279,40 @@ describe('api auth and payload handling', () => {
 
     await getTeacherClassrooms({ adapter })
     await getTeacherClassroomStudents('class-1', { adapter })
+    await getTeacherStudentChatHistory('class-1', 'student-1', { adapter, limit: 20 })
 
     expect(calls).toEqual([
       { method: 'get', url: '/teacher/classrooms' },
       { method: 'get', url: '/teacher/classrooms/class-1/students' },
+      { method: 'get', url: '/teacher/classrooms/class-1/students/student-1/chat/history' },
     ])
+  })
+
+  it('loads teacher student chat history with a limit query parameter', async () => {
+    const adapter = createAdapter(async (config) => ({
+      data: {
+        url: config.url,
+        method: config.method,
+        params: config.params,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }))
+
+    setAccessTokenProvider(async () => ({
+      token: 'token-123',
+      allowAnonymousRequest: false,
+    }))
+
+    await expect(getTeacherStudentChatHistory('class-1', 'student-1', {
+      adapter,
+      limit: 20,
+    })).resolves.toEqual({
+      url: '/teacher/classrooms/class-1/students/student-1/chat/history',
+      method: 'get',
+      params: { limit: 20 },
+    })
   })
 })

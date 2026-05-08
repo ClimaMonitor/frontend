@@ -7,6 +7,7 @@ import {
   getManagementUsers,
   getTeacherClassroomStudents,
   getTeacherClassrooms,
+  getTeacherStudentChatHistory,
   removeClassroomMember,
   updateManagementClassroom,
   updateManagementUser,
@@ -20,10 +21,12 @@ const ADMIN_TABS = [
   { id: 'users', label: 'Users' },
   { id: 'classrooms', label: 'Classrooms' },
   { id: 'members', label: 'Members' },
+  { id: 'history', label: 'History' },
 ]
 const TEACHER_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'students', label: 'Students' },
+  { id: 'history', label: 'History' },
 ]
 
 export function RoleDemoUI() {
@@ -88,10 +91,16 @@ function AdminWorkspace({ currentUser, primaryRole }) {
   const [pendingUserId, setPendingUserId] = useState(null)
   const [pendingClassroomId, setPendingClassroomId] = useState(null)
   const [pendingMembershipKey, setPendingMembershipKey] = useState(null)
+  const [historyStudents, setHistoryStudents] = useState([])
+  const [selectedHistoryStudentId, setSelectedHistoryStudentId] = useState('')
+  const [studentHistory, setStudentHistory] = useState([])
+  const [isHistoryStudentsLoading, setIsHistoryStudentsLoading] = useState(false)
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const [error, setError] = useState(null)
   const [userNotice, setUserNotice] = useState(null)
   const [classroomNotice, setClassroomNotice] = useState(null)
   const [membershipNotice, setMembershipNotice] = useState(null)
+  const [historyError, setHistoryError] = useState(null)
 
   const refreshManagementData = useCallback(async () => {
     const [usersResponse, classroomsResponse] = await Promise.all([
@@ -108,6 +117,7 @@ function AdminWorkspace({ currentUser, primaryRole }) {
     setUserNotice(null)
     setClassroomNotice(null)
     setMembershipNotice(null)
+    setHistoryError(null)
 
     try {
       await refreshManagementData()
@@ -129,6 +139,81 @@ function AdminWorkspace({ currentUser, primaryRole }) {
         : classrooms[0]?.classroom_id || ''
     ))
   }, [classrooms])
+
+  useEffect(() => {
+    if (activeTab !== 'history' || !selectedClassroomId) {
+      setHistoryStudents([])
+      setSelectedHistoryStudentId('')
+      setStudentHistory([])
+      setIsHistoryStudentsLoading(false)
+      setHistoryError(null)
+      return undefined
+    }
+
+    let isMounted = true
+    setIsHistoryStudentsLoading(true)
+    setHistoryError(null)
+
+    getTeacherClassroomStudents(selectedClassroomId)
+      .then((response) => {
+        if (!isMounted) return
+        setHistoryStudents(response.students || [])
+        setStudentHistory([])
+      })
+      .catch((loadError) => {
+        if (!isMounted) return
+        setHistoryStudents([])
+        setStudentHistory([])
+        setHistoryError(loadError.message || 'Unable to load classroom students.')
+      })
+      .finally(() => {
+        if (!isMounted) return
+        setIsHistoryStudentsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeTab, selectedClassroomId])
+
+  useEffect(() => {
+    setSelectedHistoryStudentId((currentId) => (
+      historyStudents.some((student) => student.user_id === currentId)
+        ? currentId
+        : historyStudents[0]?.user_id || ''
+    ))
+  }, [historyStudents])
+
+  useEffect(() => {
+    if (activeTab !== 'history' || !selectedClassroomId || !selectedHistoryStudentId) {
+      setStudentHistory([])
+      setIsHistoryLoading(false)
+      return undefined
+    }
+
+    let isMounted = true
+    setIsHistoryLoading(true)
+    setHistoryError(null)
+
+    getTeacherStudentChatHistory(selectedClassroomId, selectedHistoryStudentId, { limit: 50 })
+      .then((response) => {
+        if (!isMounted) return
+        setStudentHistory(Array.isArray(response.history) ? response.history : [])
+      })
+      .catch((loadError) => {
+        if (!isMounted) return
+        setStudentHistory([])
+        setHistoryError(loadError.message || 'Unable to load student chat history.')
+      })
+      .finally(() => {
+        if (!isMounted) return
+        setIsHistoryLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeTab, selectedClassroomId, selectedHistoryStudentId])
 
   const updateUser = useCallback(async (user, patch) => {
     if (user.user_id === currentUser?.userId) {
@@ -237,6 +322,7 @@ function AdminWorkspace({ currentUser, primaryRole }) {
     teachers: users.filter((user) => user.role === ROLES.TEACHER).length,
     students: users.filter((user) => user.role === ROLES.STUDENT).length,
   }), [users])
+  const selectedHistoryStudent = historyStudents.find((student) => student.user_id === selectedHistoryStudentId)
 
   return (
     <>
@@ -303,6 +389,21 @@ function AdminWorkspace({ currentUser, primaryRole }) {
                 pendingKey={pendingMembershipKey}
                 selectedClassroomId={selectedClassroomId}
                 users={users}
+              />
+            )}
+            {activeTab === 'history' && (
+              <TeacherHistoryPanel
+                classrooms={classrooms}
+                history={studentHistory}
+                historyError={historyError}
+                isHistoryLoading={isHistoryLoading}
+                isStudentsLoading={isHistoryStudentsLoading}
+                selectedClassroomId={selectedClassroomId}
+                selectedStudent={selectedHistoryStudent}
+                selectedStudentId={selectedHistoryStudentId}
+                setSelectedClassroomId={setSelectedClassroomId}
+                setSelectedStudentId={setSelectedHistoryStudentId}
+                students={historyStudents}
               />
             )}
           </>
@@ -679,15 +780,20 @@ function MembershipRow({ classroomId, isPending, membership, onRemove }) {
 function TeacherWorkspace({ currentUser, primaryRole }) {
   const [classrooms, setClassrooms] = useState([])
   const [selectedClassroomId, setSelectedClassroomId] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState('')
   const [students, setStudents] = useState([])
+  const [studentHistory, setStudentHistory] = useState([])
   const [activeTab, setActiveTab] = useState('overview')
   const [isLoading, setIsLoading] = useState(true)
   const [isStudentsLoading, setIsStudentsLoading] = useState(false)
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [historyError, setHistoryError] = useState(null)
 
   const loadClassrooms = useCallback(async () => {
     setIsLoading(true)
     setError(null)
+    setHistoryError(null)
 
     try {
       const response = await getTeacherClassrooms()
@@ -712,16 +818,21 @@ function TeacherWorkspace({ currentUser, primaryRole }) {
   useEffect(() => {
     if (!selectedClassroomId) {
       setStudents([])
+      setSelectedStudentId('')
+      setStudentHistory([])
       return undefined
     }
 
     let isMounted = true
     setIsStudentsLoading(true)
+    setError(null)
 
     getTeacherClassroomStudents(selectedClassroomId)
       .then((response) => {
         if (!isMounted) return
         setStudents(response.students || [])
+        setStudentHistory([])
+        setHistoryError(null)
       })
       .catch((loadError) => {
         if (!isMounted) return
@@ -737,7 +848,48 @@ function TeacherWorkspace({ currentUser, primaryRole }) {
     }
   }, [selectedClassroomId])
 
+  useEffect(() => {
+    setSelectedStudentId((currentId) => (
+      students.some((student) => student.user_id === currentId)
+        ? currentId
+        : students[0]?.user_id || ''
+    ))
+  }, [students])
+
+  useEffect(() => {
+    if (activeTab !== 'history' || !selectedClassroomId || !selectedStudentId) {
+      setStudentHistory([])
+      setHistoryError(null)
+      setIsHistoryLoading(false)
+      return undefined
+    }
+
+    let isMounted = true
+    setIsHistoryLoading(true)
+    setHistoryError(null)
+
+    getTeacherStudentChatHistory(selectedClassroomId, selectedStudentId, { limit: 50 })
+      .then((response) => {
+        if (!isMounted) return
+        setStudentHistory(Array.isArray(response.history) ? response.history : [])
+      })
+      .catch((loadError) => {
+        if (!isMounted) return
+        setStudentHistory([])
+        setHistoryError(loadError.message || 'Unable to load student chat history.')
+      })
+      .finally(() => {
+        if (!isMounted) return
+        setIsHistoryLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeTab, selectedClassroomId, selectedStudentId])
+
   const selectedClassroom = classrooms.find((classroom) => classroom.classroom_id === selectedClassroomId)
+  const selectedStudent = students.find((student) => student.user_id === selectedStudentId)
 
   return (
     <>
@@ -769,12 +921,26 @@ function TeacherWorkspace({ currentUser, primaryRole }) {
             selectedClassroomId={selectedClassroomId}
             setSelectedClassroomId={setSelectedClassroomId}
           />
-        ) : (
+        ) : activeTab === 'students' ? (
           <TeacherStudentsPanel
             classrooms={classrooms}
             isStudentsLoading={isStudentsLoading}
             selectedClassroomId={selectedClassroomId}
             setSelectedClassroomId={setSelectedClassroomId}
+            students={students}
+          />
+        ) : (
+          <TeacherHistoryPanel
+            classrooms={classrooms}
+            history={studentHistory}
+            historyError={historyError}
+            isHistoryLoading={isHistoryLoading}
+            isStudentsLoading={isStudentsLoading}
+            selectedClassroomId={selectedClassroomId}
+            selectedStudent={selectedStudent}
+            selectedStudentId={selectedStudentId}
+            setSelectedClassroomId={setSelectedClassroomId}
+            setSelectedStudentId={setSelectedStudentId}
             students={students}
           />
         )}
@@ -856,6 +1022,131 @@ function TeacherStudentsPanel({ classrooms, isStudentsLoading, selectedClassroom
       )}
     </Section>
   )
+}
+
+function TeacherHistoryPanel({
+  classrooms,
+  history,
+  historyError,
+  isHistoryLoading,
+  isStudentsLoading,
+  selectedClassroomId,
+  selectedStudent,
+  selectedStudentId,
+  setSelectedClassroomId,
+  setSelectedStudentId,
+  students,
+}) {
+  return (
+    <Section title="Chat history" icon={<HistoryIcon />}>
+      {classrooms.length ? (
+        <>
+          <select
+            aria-label="Teacher history classroom"
+            className={styles.select}
+            value={selectedClassroomId}
+            onChange={(event) => setSelectedClassroomId(event.target.value)}
+          >
+            {classrooms.map((classroom) => (
+              <option key={classroom.classroom_id} value={classroom.classroom_id}>
+                {classroom.name}
+              </option>
+            ))}
+          </select>
+
+          {isStudentsLoading ? (
+            <EmptyState icon={<InfoIcon />} title="Loading students" message="Fetching the selected classroom roster." />
+          ) : historyError && !students.length ? (
+            <EmptyState icon={<InfoIcon />} title="History unavailable" message={historyError} tone="error" />
+          ) : students.length ? (
+            <>
+              <select
+                aria-label="Teacher history student"
+                className={styles.select}
+                value={selectedStudentId}
+                onChange={(event) => setSelectedStudentId(event.target.value)}
+              >
+                {students.map((student) => (
+                  <option key={student.user_id} value={student.user_id}>
+                    {student.display_name || student.email}
+                  </option>
+                ))}
+              </select>
+
+              <div className={styles.summaryGrid}>
+                <SummaryItem label="Student" value={selectedStudent?.display_name || selectedStudent?.email || 'None'} />
+                <SummaryItem label="History items" value={String(history.length)} />
+              </div>
+
+              {historyError ? (
+                <EmptyState icon={<InfoIcon />} title="History unavailable" message={historyError} tone="error" />
+              ) : isHistoryLoading ? (
+                <EmptyState icon={<InfoIcon />} title="Loading chat history" message="Fetching saved messages for this student." />
+              ) : (
+                <HistoryList history={history} />
+              )}
+            </>
+          ) : (
+            <EmptyState icon={<InfoIcon />} title="No students" message="No students found for this classroom." />
+          )}
+        </>
+      ) : (
+        <EmptyState icon={<SchoolIcon />} title="No classrooms" message="No active classroom memberships found." />
+      )}
+    </Section>
+  )
+}
+
+function HistoryList({ history }) {
+  const rows = [...history].sort((first, second) => {
+    const firstTime = new Date(first.created_at || 0).getTime()
+    const secondTime = new Date(second.created_at || 0).getTime()
+    return firstTime - secondTime
+  })
+
+  if (!rows.length) {
+    return <EmptyState icon={<HistoryIcon />} title="No chat history" message="No chat history found for this student." />
+  }
+
+  return (
+    <ol className={styles.historyList}>
+      {rows.map((entry, index) => (
+        <li key={entry.chat_history_id || `${entry.created_at}_${index}`} className={styles.historyEntry}>
+          <div className={styles.historyMeta}>
+            <span>{formatHistoryTimestamp(entry.created_at)}</span>
+            <span className={entry.status === 'success' ? styles.statusPill : styles.inactivePill}>
+              {entry.status || 'unknown'}
+            </span>
+          </div>
+          <div className={styles.historyPair}>
+            <HistoryMessage label="Student" text={entry.query_text} />
+            <HistoryMessage label="ClimaMonitor" text={entry.response_text || entry.reason || 'No response recorded.'} />
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function HistoryMessage({ label, text }) {
+  return (
+    <div className={styles.historyMessage}>
+      <span>{label}</span>
+      <p>{text || 'No text recorded.'}</p>
+    </div>
+  )
+}
+
+function formatHistoryTimestamp(timestamp) {
+  if (!timestamp) return 'Unknown time'
+
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return 'Unknown time'
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
 }
 
 function StudentWorkspace({ currentUser, primaryRole }) {
@@ -1085,6 +1376,16 @@ function UserIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
+    </svg>
+  )
+}
+
+function HistoryIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v5h5" />
+      <path d="M3.05 13a9 9 0 1 0 2.64-6.36L3 8" />
+      <path d="M12 7v5l4 2" />
     </svg>
   )
 }

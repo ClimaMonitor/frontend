@@ -215,4 +215,15 @@ export async function getTeacherClassroomStudents(classroomId, options = {}) {
   return response.data
 }
 
+export async function getTeacherStudentChatHistory(classroomId, studentId, options = {}) {
+  const response = await api.get(`/teacher/classrooms/${classroomId}/students/${studentId}/chat/history`, {
+    adapter: options.adapter,
+    signal: options.signal,
+    params: {
+      limit: options.limit ?? 50,
+    },
+  })
+  return response.data
+}
+
 export default api

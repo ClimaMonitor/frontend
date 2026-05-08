@@ -6,23 +6,29 @@ import {
   getManagementClassrooms,
   getManagementUsers,
   removeClassroomMember,
+  getTeacherClassroomStudents,
+  getTeacherClassrooms,
+  getTeacherStudentChatHistory,
   upsertClassroomMember,
   updateManagementUser,
 } from '../../services/api.js'
 import { RoleDemoUI } from './RoleDemoUI.jsx'
 
+const authState = vi.hoisted(() => ({
+  currentUser: {
+    userId: 'admin-1',
+    displayName: 'Admin User',
+    email: 'admin@example.com',
+    classroomIds: [],
+  },
+  isAdmin: true,
+  isGuestMode: false,
+  isTeacher: false,
+  primaryRole: 'admin',
+}))
+
 vi.mock('../../hooks/useAuth.js', () => ({
-  useAuth: () => ({
-    currentUser: {
-      userId: 'admin-1',
-      displayName: 'Admin User',
-      email: 'admin@example.com',
-      classroomIds: [],
-    },
-    isAdmin: true,
-    isTeacher: false,
-    primaryRole: ROLES.ADMIN,
-  }),
+  useAuth: () => authState,
 }))
 
 vi.mock('../../services/api.js', () => ({
@@ -31,6 +37,7 @@ vi.mock('../../services/api.js', () => ({
   getManagementUsers: vi.fn(),
   getTeacherClassroomStudents: vi.fn(),
   getTeacherClassrooms: vi.fn(),
+  getTeacherStudentChatHistory: vi.fn(),
   removeClassroomMember: vi.fn(),
   updateManagementClassroom: vi.fn(),
   updateManagementUser: vi.fn(),
@@ -87,6 +94,21 @@ function seedManagementData({
   getManagementClassrooms.mockResolvedValue({ classrooms })
 }
 
+function resetAuthState() {
+  Object.assign(authState, {
+    currentUser: {
+      userId: 'admin-1',
+      displayName: 'Admin User',
+      email: 'admin@example.com',
+      classroomIds: [],
+    },
+    isAdmin: true,
+    isGuestMode: false,
+    isTeacher: false,
+    primaryRole: ROLES.ADMIN,
+  })
+}
+
 describe('RoleDemoUI admin management', () => {
   afterEach(() => {
     cleanup()
@@ -94,6 +116,7 @@ describe('RoleDemoUI admin management', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    resetAuthState()
     seedManagementData()
     createManagementClassroom.mockResolvedValue({
       classroom: {
@@ -175,5 +198,77 @@ describe('RoleDemoUI admin management', () => {
     await waitFor(() => {
       expect(removeClassroomMember).toHaveBeenCalledWith('class-1', 'teacher-1')
     })
+  })
+})
+
+describe('RoleDemoUI teacher history', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.assign(authState, {
+      currentUser: {
+        userId: 'teacher-1',
+        displayName: 'Teacher User',
+        email: 'teacher@example.com',
+        classroomIds: ['class-1'],
+      },
+      isAdmin: false,
+      isGuestMode: false,
+      isTeacher: true,
+      primaryRole: ROLES.TEACHER,
+    })
+
+    getTeacherClassrooms.mockResolvedValue({
+      classrooms: [
+        {
+          classroom_id: 'class-1',
+          name: 'Demo Classroom',
+          active: true,
+          teacher_count: 1,
+          student_count: 1,
+        },
+      ],
+    })
+    getTeacherClassroomStudents.mockResolvedValue({
+      students: [
+        {
+          user_id: 'student-1',
+          email: 'student@example.com',
+          display_name: 'Student User',
+          active: true,
+        },
+      ],
+    })
+    getTeacherStudentChatHistory.mockResolvedValue({
+      student: {
+        user_id: 'student-1',
+        email: 'student@example.com',
+        display_name: 'Student User',
+      },
+      history: [
+        {
+          chat_history_id: 'history-1',
+          query_text: 'What causes global warming?',
+          response_text: 'Greenhouse gas emissions trap heat.',
+          status: 'success',
+          created_at: '2026-05-08T12:00:00.000Z',
+        },
+      ],
+    })
+  })
+
+  it('lets teachers view read-only chat history for a classroom student', async () => {
+    render(<RoleDemoUI />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'History' }))
+
+    await waitFor(() => {
+      expect(getTeacherStudentChatHistory).toHaveBeenCalledWith('class-1', 'student-1', { limit: 50 })
+    })
+    expect(await screen.findByText('What causes global warming?')).toBeInTheDocument()
+    expect(screen.getByText('Greenhouse gas emissions trap heat.')).toBeInTheDocument()
   })
 })
