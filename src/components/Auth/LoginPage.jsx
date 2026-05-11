@@ -40,12 +40,6 @@ export function LoginPage({ onContinueWithoutAuth }) {
 
         {authError && <div className={styles.error}>{authError}</div>}
 
-        {!isLocalApiTarget && (
-          <div className={styles.notice}>
-            This dev session is pointed at the deployed Azure API. Anonymous dev mode is only available when the frontend is running against the local API.
-          </div>
-        )}
-
         <button
           type="button"
           className={styles.primaryButton}

@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useChat } from '../../hooks/useChat.js'
 import { useAuth } from '../../hooks/useAuth.js'
-import { isLocalApiTarget } from '../../auth/msalConfig.js'
 import { MessageBubble } from './MessageBubble.jsx'
 import { ChatInput } from './ChatInput.jsx'
 import styles from './ChatWindow.module.css'
@@ -85,9 +84,7 @@ function EmptyState({ isAnonymousMode, isAuthenticated, isGuestMode, primaryRole
           : isGuestMode
             ? 'Guest mode uses the live ClimaMonitor assistant. You can send 5 sample prompts before signing in.'
           : isAnonymousMode
-            ? isLocalApiTarget
-              ? 'Anonymous dev mode is enabled against the local API. Authentication is bypassed locally, but role-based UI is hidden until you sign in.'
-              : 'Anonymous mode cannot chat against the deployed Azure API because authentication is required there. Switch to local API mode to test anonymous chat.'
+            ? 'Anonymous dev mode is enabled. Role-based UI is hidden until you sign in.'
             : 'I can help you learn about climate science. Try asking about global warming, the carbon cycle, or how scientists measure temperature changes.'}
       </p>
       <div className={styles.suggestions}>
