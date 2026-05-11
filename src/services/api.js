@@ -112,6 +112,7 @@ export async function getChatHistory(options = {}) {
     headers: options.accessToken
       ? { Authorization: `Bearer ${options.accessToken}` }
       : undefined,
+    skipAuth: Boolean(options.accessToken),
     signal: options.signal,
     params: {
       limit: options.limit ?? 50,
@@ -123,6 +124,10 @@ export async function getChatHistory(options = {}) {
 export async function getCurrentUser(options = {}) {
   const response = await api.get('/me', {
     adapter: options.adapter,
+    headers: options.accessToken
+      ? { Authorization: `Bearer ${options.accessToken}` }
+      : undefined,
+    skipAuth: Boolean(options.accessToken),
     signal: options.signal,
   })
   return response.data

@@ -145,6 +145,10 @@ describe('api auth and payload handling', () => {
   })
 
   it('loads chat history with an explicit bearer token and a limit query parameter', async () => {
+    const provider = vi.fn(async () => ({
+      token: 'provider-token',
+      allowAnonymousRequest: false,
+    }))
     const adapter = createAdapter(async (config) => ({
       data: {
         url: config.url,
@@ -158,6 +162,8 @@ describe('api auth and payload handling', () => {
       config,
     }))
 
+    setAccessTokenProvider(provider)
+
     await expect(getChatHistory({
       accessToken: 'token-123',
       limit: 25,
@@ -168,6 +174,7 @@ describe('api auth and payload handling', () => {
       authorization: 'Bearer token-123',
       params: { limit: 25 },
     })
+    expect(provider).not.toHaveBeenCalled()
   })
 
   it('rejects requests when authentication fails outside anonymous mode', async () => {
@@ -207,6 +214,29 @@ describe('api auth and payload handling', () => {
       method: 'get',
       authorization: 'Bearer token-123',
     })
+  })
+
+  it('uses an explicit current-user token without invoking the token provider', async () => {
+    const provider = vi.fn(async () => ({
+      token: 'provider-token',
+      allowAnonymousRequest: false,
+    }))
+    const adapter = createAdapter(async (config) => ({
+      data: {
+        authorization: config.headers.Authorization,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }))
+
+    setAccessTokenProvider(provider)
+
+    await expect(getCurrentUser({ accessToken: 'token-123', adapter })).resolves.toEqual({
+      authorization: 'Bearer token-123',
+    })
+    expect(provider).not.toHaveBeenCalled()
   })
 
   it('uses management routes for admin-backed user and classroom APIs', async () => {

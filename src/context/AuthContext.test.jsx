@@ -3,6 +3,7 @@ import {
   normalizeCurrentUser,
   normalizeGuestSession,
   normalizeRole,
+  isAccessTokenFresh,
   parseJwtClaims,
 } from './AuthContext.jsx'
 
@@ -22,6 +23,23 @@ describe('parseJwtClaims', () => {
 
   it('returns an empty object for malformed tokens', () => {
     expect(parseJwtClaims('not-a-jwt')).toEqual({})
+  })
+})
+
+describe('isAccessTokenFresh', () => {
+  it('accepts tokens that expire outside the refresh buffer', () => {
+    const nowMs = Date.parse('2026-05-11T10:00:00.000Z')
+    const expiresAtSeconds = Math.floor(Date.parse('2026-05-11T10:05:00.000Z') / 1000)
+
+    expect(isAccessTokenFresh({ exp: expiresAtSeconds }, nowMs)).toBe(true)
+  })
+
+  it('rejects missing, expired, or nearly-expired tokens', () => {
+    const nowMs = Date.parse('2026-05-11T10:00:00.000Z')
+    const expiresSoonSeconds = Math.floor(Date.parse('2026-05-11T10:01:00.000Z') / 1000)
+
+    expect(isAccessTokenFresh({}, nowMs)).toBe(false)
+    expect(isAccessTokenFresh({ exp: expiresSoonSeconds }, nowMs)).toBe(false)
   })
 })
 

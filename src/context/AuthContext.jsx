@@ -20,6 +20,7 @@ import { createGuestSession, getCurrentUser } from '../services/api.js'
 
 const AuthContext = createContext(null)
 const GUEST_SESSION_STORAGE_KEY = 'climamonitor.guestSession'
+const TOKEN_REFRESH_BUFFER_SECONDS = 120
 
 function normalizeRole(role) {
   if (!role) return null
@@ -44,6 +45,16 @@ export function parseJwtClaims(token) {
   } catch {
     return {}
   }
+}
+
+export function isAccessTokenFresh(tokenClaims, nowMs = Date.now()) {
+  const expiresAtSeconds = Number(tokenClaims?.exp)
+
+  if (!Number.isFinite(expiresAtSeconds)) {
+    return false
+  }
+
+  return expiresAtSeconds * 1000 - TOKEN_REFRESH_BUFFER_SECONDS * 1000 > nowMs
 }
 
 function getRoleClaims(account, tokenClaims) {
@@ -152,6 +163,10 @@ export function AuthProvider({ children }) {
       return null
     }
 
+    if (accessToken && isAccessTokenFresh(accessTokenClaims)) {
+      return accessToken
+    }
+
     try {
       const response = await instance.acquireTokenSilent({
         ...loginRequest,
@@ -167,7 +182,7 @@ export function AuthProvider({ children }) {
       setTokenError('Unable to acquire an API token for this session.')
       throw error
     }
-  }, [account, instance])
+  }, [accessToken, accessTokenClaims, account, instance])
 
   useEffect(() => {
     if (!isAuthenticated || !account || !isAuthConfigured) {
@@ -200,7 +215,7 @@ export function AuthProvider({ children }) {
     setIsUserContextLoading(true)
     setUserContextError(null)
 
-    getCurrentUser()
+    getCurrentUser({ accessToken })
       .then((response) => {
         if (!isMounted) return
         setCurrentUser(normalizeCurrentUser(response.user))
