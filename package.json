@@ -8,6 +8,7 @@
     "dev:azure": "vite --mode azure",
     "dev:localapi": "vite --mode localapi",
     "build": "vite build",
+    "build:azure": "vite build --mode azure",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview"
